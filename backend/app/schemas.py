@@ -116,3 +116,8 @@ class OilDetectionRequest(BaseModel):
     checkpoint_path: Optional[str] = None
     threshold: float = 0.5
     sar_evidence_id: Optional[str] = None
+
+
+class SpillGeometryRequest(BaseModel):
+    oil_detection_analysis_id: Optional[str] = None
+    min_component_size_pixels: int = 1

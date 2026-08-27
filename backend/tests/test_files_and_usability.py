@@ -99,3 +99,48 @@ def test_output_file_path_traversal_rejection():
     res_out = client.get(f"/cases/{case_id}/outputs/../../etc/passwd")
     # Sanitized filename passwd does not exist in outputs directory, so returns 404
     assert res_out.status_code == 404
+
+
+def test_ops_console_schema_resilience(tmp_path):
+    # Verify that AnalysisResult and manifest oil_masks schemas match expected fields without KeyError
+    dummy_img_dir = tmp_path / "t_img"
+    dummy_mask_dir = tmp_path / "t_mask"
+    dummy_img_dir.mkdir()
+    dummy_mask_dir.mkdir()
+
+    for i in range(2):
+        cv2.imwrite(str(dummy_img_dir / f"s_{i}.png"), np.zeros((32, 32), dtype=np.uint8))
+        cv2.imwrite(str(dummy_mask_dir / f"s_{i}.png"), np.zeros((32, 32), dtype=np.uint8))
+
+    ckpt_path = tmp_path / "resilient_model.pt"
+    train_model(images_dir=dummy_img_dir, masks_dir=dummy_mask_dir, epochs=1, batch_size=2, image_size=32, out_path=ckpt_path, seed=42)
+
+    res_case = client.post("/cases", json={"name": "Schema Resilience Case"})
+    case_id = res_case.json()["case_id"]
+
+    sar_bytes = cv2.imencode(".png", np.zeros((32, 32), dtype=np.uint8))[1].tobytes()
+    res_ev = client.post(f"/cases/{case_id}/evidence", files={"file": ("sar.png", sar_bytes, "image/png")}, data={"evidence_type": "sar_image"})
+    sar_ev_id = res_ev.json()["evidence_id"]
+
+    res_an = client.post(f"/cases/{case_id}/analysis/oil-detection", json={"checkpoint_path": str(ckpt_path), "sar_evidence_id": sar_ev_id})
+    assert res_an.status_code == 200
+    an_data = res_an.json()
+
+    # Simulate Streamlit console rendering parsing logic
+    res_dict = an_data.get("result") or {}
+    bin_hash = res_dict.get("binary_mask_sha256") or res_dict.get("sha256") or "Not available"
+    prob_hash = res_dict.get("probability_mask_sha256") or "Not available"
+
+    assert bin_hash != "Not available"
+    assert prob_hash != "Not available"
+
+    # Check case manifest oil_masks schema
+    res_fresh = client.get(f"/cases/{case_id}")
+    oil_masks = res_fresh.json()["data_manifest"]["oil_masks"]
+    assert len(oil_masks) == 1
+    om = oil_masks[0]
+
+    om_bin_hash = om.get("binary_mask_sha256") or om.get("sha256") or "Not available"
+    om_prob_hash = om.get("probability_mask_sha256") or "Not available"
+    assert om_bin_hash != "Not available"
+    assert om_prob_hash != "Not available"
