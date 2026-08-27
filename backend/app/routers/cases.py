@@ -23,7 +23,7 @@ def create_case(payload: CaseCreate) -> Case:
         case_id=case_id,
         name=payload.name,
         description=payload.description,
-        observation_timestamp=payload.observation_timestamp or now_iso,
+        observation_timestamp=payload.observation_timestamp,
         latitude=payload.latitude,
         longitude=payload.longitude,
         source=payload.source,

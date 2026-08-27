@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from .routers import analysis, cases, evidence
+from .routers import analysis, cases, evidence, files
 
 app = FastAPI(
     title="SAMUDRANETRA API",
@@ -10,6 +10,7 @@ app = FastAPI(
 app.include_router(cases.router)
 app.include_router(evidence.router)
 app.include_router(analysis.router)
+app.include_router(files.router)
 
 
 @app.get("/health")

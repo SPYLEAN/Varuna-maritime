@@ -70,8 +70,17 @@ def run_oil_detection_analysis(case_id: str, payload: Optional[OilDetectionReque
         return res
 
     # 2. Locate model checkpoint file
-    ckpt_str = payload.checkpoint_path or "models/oiltrace_unet.pt"
-    ckpt_path = Path(ckpt_str)
+    if payload.checkpoint_path:
+        ckpt_path = Path(payload.checkpoint_path)
+    else:
+        v0_path = Path("models/oil_detection/samudranetra_oilseg_v0.pt")
+        default_path = Path("models/oiltrace_unet.pt")
+        if v0_path.exists():
+            ckpt_path = v0_path
+        elif default_path.exists():
+            ckpt_path = default_path
+        else:
+            ckpt_path = v0_path
 
     if not ckpt_path.exists():
         now_iso = datetime.now(timezone.utc).isoformat()
