@@ -40,6 +40,17 @@ def run_inference(
 
     # Threshold probability map to produce binary oil-spill mask
     binary_mask = (prob_resized >= threshold).astype(np.uint8) * 255
+    oil_pixels_mask = (binary_mask > 0)
+
+    # Compute exact raw model-output statistics
+    oil_fraction = float(oil_pixels_mask.sum() / binary_mask.size)
+    mean_probability = float(prob_resized.mean())
+    max_probability = float(prob_resized.max())
+    
+    if oil_pixels_mask.sum() > 0:
+        mean_oil_probability = float(prob_resized[oil_pixels_mask].mean())
+    else:
+        mean_oil_probability = None
 
     # Save thresholded binary oil-spill mask
     bin_out = Path(binary_out_path)
@@ -54,11 +65,14 @@ def run_inference(
         cv2.imwrite(str(p_out), prob_uint8)
         prob_saved_path = str(p_out)
 
-    oil_fraction = float((binary_mask > 0).mean())
     return {
         "binary_mask_path": str(bin_out),
         "probability_mask_path": prob_saved_path,
-        "oil_fraction": round(oil_fraction, 4),
+        "oil_fraction": round(oil_fraction, 6),
+        "mean_probability": round(mean_probability, 6),
+        "mean_oil_probability": round(mean_oil_probability, 6) if mean_oil_probability is not None else None,
+        "max_probability": round(max_probability, 6),
+        "threshold": round(float(threshold), 4),
         "original_shape": (orig_h, orig_w),
     }
 
@@ -84,7 +98,14 @@ def main():
     print(f"  Binary mask saved to     : {res['binary_mask_path']}")
     if res["probability_mask_path"]:
         print(f"  Probability mask saved to: {res['probability_mask_path']}")
-    print(f"  Estimated oil fraction   : {res['oil_fraction']:.4f}")
+    print(f"  Oil fraction             : {res['oil_fraction']:.6f}")
+    print(f"  Mean probability         : {res['mean_probability']:.6f}")
+    if res['mean_oil_probability'] is not None:
+        print(f"  Mean oil probability     : {res['mean_oil_probability']:.6f}")
+    else:
+        print("  Mean oil probability     : null (no oil pixels predicted)")
+    print(f"  Max probability          : {res['max_probability']:.6f}")
+    print(f"  Threshold                : {res['threshold']:.4f}")
 
 
 if __name__ == "__main__":

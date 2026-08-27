@@ -11,9 +11,9 @@ def test_small_unet_shape():
 
 
 def test_small_unet_cuda_if_available():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = SmallUNet().to(device)
-    x = torch.randn(1, 1, 128, 128).to(device)
+    x = torch.randn(1, 1, 128, 128, device=device)
     y = model(x)
-    assert y.device == device
+    assert y.device == next(model.parameters()).device
     assert y.shape == (1, 1, 128, 128)

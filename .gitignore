@@ -8,6 +8,8 @@ data/raw/*
 !data/raw/masks/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/cases/*
+!data/cases/.gitkeep
 models/*
 !models/.gitkeep
 *.pt

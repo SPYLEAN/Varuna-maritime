@@ -100,3 +100,6 @@ def test_full_ml_pipeline(synthetic_data):
     assert bin_out.stat().st_size > 0
     assert prob_out.stat().st_size > 0
     assert 0.0 <= inf_res["oil_fraction"] <= 1.0
+    assert 0.0 <= inf_res["mean_probability"] <= 1.0
+    assert 0.0 <= inf_res["max_probability"] <= 1.0
+    assert inf_res["threshold"] == 0.5
