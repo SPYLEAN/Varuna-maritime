@@ -13,3 +13,42 @@ models/*
 *.pt
 *.pth
 *.onnx
+# Large datasets
+data/raw/*
+data/processed/*
+
+# Keep folder documentation
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/README.md
+
+# Model checkpoints
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# Large geospatial/ocean files
+*.tif
+*.tiff
+*.nc
+*.h5
+*.hdf5
+*.zarr
+*.zip
+
+# Generated outputs
+outputs/*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Secrets
+.env
+.env.*
