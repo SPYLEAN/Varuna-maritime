@@ -4,8 +4,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-from .data import read_grayscale
-from .model import SmallUNet
+from .checkpoint import load_model_from_checkpoint
+from .data import read_grayscale, read_sentinel1_stack
+from .preprocessing import SARPreprocessingConfig
 
 
 def run_inference(
@@ -14,22 +15,46 @@ def run_inference(
     binary_out_path: str | Path,
     prob_out_path: str | Path | None = None,
     threshold: float = 0.5,
+    vh_image_path: str | Path | None = None,
+    preprocessing: SARPreprocessingConfig | None = None,
 ) -> dict:
+    if not 0.0 <= threshold <= 1.0:
+        raise ValueError("threshold must be between 0 and 1")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(checkpoint_path, map_location=device)
-    size = int(ckpt.get("image_size", 256)) if isinstance(ckpt, dict) else 256
-
-    model = SmallUNet().to(device)
-    state_dict = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
-    model.load_state_dict(state_dict)
+    model, metadata, size = load_model_from_checkpoint(checkpoint_path, device=device)
     model.eval()
 
-    raw = read_grayscale(image_path)
-    orig_h, orig_w = raw.shape
-
-    # Resize image to model resolution
-    img = cv2.resize(raw, (size, size), interpolation=cv2.INTER_LINEAR)
-    x = torch.from_numpy(img).unsqueeze(0).unsqueeze(0).float().to(device)
+    input_channels = int(metadata["input_channels"])
+    if input_channels == 1:
+        if vh_image_path is not None:
+            raise ValueError("A legacy one-channel checkpoint does not accept --vh-image")
+        raw = read_grayscale(image_path)
+        orig_h, orig_w = raw.shape
+        img = cv2.resize(raw, (size, size), interpolation=cv2.INTER_LINEAR)
+        x = torch.from_numpy(img).unsqueeze(0).unsqueeze(0).float().to(device)
+    elif input_channels == 2:
+        if vh_image_path is None:
+            raise ValueError("A two-channel checkpoint requires an explicit VH GeoTIFF")
+        channel_order = tuple(metadata["channel_order"])
+        if preprocessing is None:
+            preprocessing_values = metadata.get("preprocessing", {})
+            if preprocessing_values.get("method") not in {"fixed_db", "robust_percentile"}:
+                raise ValueError("Two-channel checkpoint lacks usable SAR preprocessing metadata")
+            preprocessing = SARPreprocessingConfig.from_dict(preprocessing_values)
+        stack, raster_metadata = read_sentinel1_stack(
+            image_path,
+            vh_image_path,
+            channel_order=channel_order,
+            preprocessing=preprocessing,
+        )
+        orig_h, orig_w = raster_metadata["shape"]
+        resized = np.stack(
+            [cv2.resize(channel, (size, size), interpolation=cv2.INTER_LINEAR) for channel in stack],
+            axis=0,
+        ).astype(np.float32)
+        x = torch.from_numpy(resized).unsqueeze(0).float().to(device)
+    else:
+        raise ValueError(f"Unsupported checkpoint input channel count: {input_channels}")
 
     with torch.no_grad():
         prob = torch.sigmoid(model(x))[0, 0].cpu().numpy()
@@ -74,6 +99,8 @@ def run_inference(
         "max_probability": round(max_probability, 6),
         "threshold": round(float(threshold), 4),
         "original_shape": (orig_h, orig_w),
+        "input_channels": input_channels,
+        "channel_order": metadata["channel_order"],
     }
 
 
@@ -81,6 +108,7 @@ def main():
     ap = argparse.ArgumentParser(description="Run SAR oil-spill U-Net segmentation inference on an unseen image.")
     ap.add_argument("--checkpoint", required=True, help="Path to trained model checkpoint (.pt)")
     ap.add_argument("--image", required=True, help="Path to unseen SAR image file")
+    ap.add_argument("--vh-image", help="V1 VH GeoTIFF; --image is the VV GeoTIFF")
     ap.add_argument("--out", required=True, help="Output path for thresholded binary mask PNG")
     ap.add_argument("--prob-out", help="Optional output path for probability mask PNG")
     ap.add_argument("--threshold", type=float, default=0.5, help="Probability decision threshold")
@@ -92,6 +120,7 @@ def main():
         binary_out_path=args.out,
         prob_out_path=args.prob_out,
         threshold=args.threshold,
+        vh_image_path=args.vh_image,
     )
 
     print(f"Inference complete on {args.image}:")

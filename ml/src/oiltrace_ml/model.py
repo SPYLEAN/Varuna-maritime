@@ -18,6 +18,11 @@ class DoubleConv(nn.Module):
 class SmallUNet(nn.Module):
     def __init__(self, in_channels: int = 1, out_channels: int = 1, base: int = 32):
         super().__init__()
+        if in_channels < 1 or out_channels < 1 or base < 1:
+            raise ValueError("in_channels, out_channels, and base must be positive")
+        self.in_channels = int(in_channels)
+        self.out_channels = int(out_channels)
+        self.base_channels = int(base)
         self.enc1 = DoubleConv(in_channels, base)
         self.enc2 = DoubleConv(base, base * 2)
         self.enc3 = DoubleConv(base * 2, base * 4)

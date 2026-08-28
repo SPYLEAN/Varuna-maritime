@@ -6,9 +6,10 @@ from pathlib import Path
 import uuid
 from typing import Optional
 from fastapi import APIRouter, HTTPException, status
-from ..schemas import AnalysisResult, OilDetectionRequest, SpillGeometryRequest, StatusEnum
+from ..schemas import AnalysisResult, HindcastReadinessRequest, OilDetectionRequest, SpillGeometryRequest, StatusEnum
 from ..storage import storage
 from ..services.spill_geometry import analyze_spill_geometry
+from ..services.hindcast_readiness import evaluate_hindcast_readiness
 from ml.src.oiltrace_ml.infer import run_inference
 
 router = APIRouter(prefix="/cases/{case_id}/analysis", tags=["Analysis"])
@@ -224,7 +225,7 @@ def run_oil_detection_analysis(case_id: str, payload: Optional[OilDetectionReque
     oil_masks_list.append(oil_mask_record)
     raw_case["data_manifest"]["oil_masks"] = oil_masks_list
 
-    # Complete analysis result (confidence set to None for uncalibrated model)
+    # Complete analysis result
     res = AnalysisResult(
         analysis_id=an_id,
         case_id=case_id,
@@ -491,6 +492,60 @@ def run_spill_geometry_analysis(case_id: str, payload: Optional[SpillGeometryReq
     )
 
     raw_case["analysis_status"]["spill_geometry"] = StatusEnum.COMPLETED.value
+    gen_results.append(res.model_dump())
+    raw_case["data_manifest"]["generated_analysis_results"] = gen_results
+
+    storage.save_case(raw_case)
+    return res
+
+
+@router.post("/hindcast-readiness", response_model=AnalysisResult)
+def run_hindcast_readiness_analysis(case_id: str, payload: Optional[HindcastReadinessRequest] = None) -> AnalysisResult:
+    if payload is None:
+        payload = HindcastReadinessRequest()
+
+    raw_case = storage.get_case(case_id)
+    if not raw_case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Case '{case_id}' not found",
+        )
+
+    an_id = f"an_{uuid.uuid4().hex[:8]}"
+    started_at = datetime.now(timezone.utc).isoformat()
+
+    readiness_summary, status_enum, warnings = evaluate_hindcast_readiness(
+        case_manifest=raw_case,
+        hindcast_hours=payload.hindcast_hours,
+        require_waves=payload.require_waves,
+        spill_geometry_analysis_id=payload.spill_geometry_analysis_id,
+    )
+
+    completed_at = datetime.now(timezone.utc).isoformat()
+
+    res = AnalysisResult(
+        analysis_id=an_id,
+        case_id=case_id,
+        module="hindcast_readiness",
+        module_version="1.0.0",
+        configuration={
+            "hindcast_hours": payload.hindcast_hours,
+            "require_waves": payload.require_waves,
+            "spill_geometry_analysis_id": payload.spill_geometry_analysis_id,
+        },
+        started_at=started_at,
+        completed_at=completed_at,
+        status=status_enum,
+        confidence=None,
+        result=readiness_summary,
+        warnings=warnings,
+    )
+
+    if "analysis_status" not in raw_case:
+        raw_case["analysis_status"] = {}
+    raw_case["analysis_status"]["hindcast"] = status_enum.value
+
+    gen_results = raw_case.get("data_manifest", {}).get("generated_analysis_results", [])
     gen_results.append(res.model_dump())
     raw_case["data_manifest"]["generated_analysis_results"] = gen_results
 
