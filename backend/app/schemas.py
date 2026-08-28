@@ -16,8 +16,11 @@ class StatusEnum(str, Enum):
 class EvidenceType(str, Enum):
     SAR_IMAGE = "sar_image"
     OIL_MASK = "oil_mask"
-    AIS = "ais"
+    OCEAN_CURRENT = "ocean_current"
+    WIND = "wind"
+    WAVE = "wave"
     MET_OCEAN = "met_ocean"
+    AIS = "ais"
     RESEARCH_NOTE = "research_note"
     OTHER = "other"
 
@@ -28,6 +31,25 @@ class AnalysisStatus(BaseModel):
     hindcast: StatusEnum = StatusEnum.NOT_STARTED
     ais_correlation: StatusEnum = StatusEnum.NOT_STARTED
     attribution: StatusEnum = StatusEnum.NOT_STARTED
+
+
+class MetOceanMetadata(BaseModel):
+    provider: Optional[str] = None
+    dataset_name: Optional[str] = None
+    detected_variables: List[str] = Field(default_factory=list)
+    detected_components: Dict[str, str] = Field(default_factory=dict)
+    units: Dict[str, str] = Field(default_factory=dict)
+    lat_min: Optional[float] = None
+    lat_max: Optional[float] = None
+    lon_min: Optional[float] = None
+    lon_max: Optional[float] = None
+    time_start_utc: Optional[str] = None
+    time_end_utc: Optional[str] = None
+    time_resolution_hours: Optional[float] = None
+    spatial_resolution_deg: Optional[float] = None
+    depth_m: Optional[float] = None
+    crs: Optional[str] = None
+    warnings: List[str] = Field(default_factory=list)
 
 
 class Evidence(BaseModel):
@@ -45,6 +67,7 @@ class Evidence(BaseModel):
     is_synthetic: bool = False
     is_human_verified: bool = False
     notes: Optional[str] = None
+    metocean_metadata: Optional[MetOceanMetadata] = None
 
 
 class AnalysisResult(BaseModel):
@@ -121,3 +144,9 @@ class OilDetectionRequest(BaseModel):
 class SpillGeometryRequest(BaseModel):
     oil_detection_analysis_id: Optional[str] = None
     min_component_size_pixels: int = 1
+
+
+class HindcastReadinessRequest(BaseModel):
+    hindcast_hours: float = Field(default=12.0, gt=0, le=168.0)
+    require_waves: bool = False
+    spill_geometry_analysis_id: Optional[str] = None

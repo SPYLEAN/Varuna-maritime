@@ -112,6 +112,7 @@ tabs = st.tabs([
     "🗂️ Evidence List",
     "🤖 Oil Detection",
     "📐 Spill Geometry",
+    "🌊 Hindcast Readiness",
     "📜 Provenance Audit",
     "📊 System Status",
     "💬 Analyst Questions",
@@ -178,13 +179,13 @@ with tabs[1]:
         case_id = selected_case.get("case_id", "N/A")
         st.markdown(f"Attaching evidence file to active case: **{case_name}** (`{case_id}`)")
         
-        uploaded_file = st.file_uploader("Select Evidence File (SAR image, oil mask, AIS, etc.)", key="ev_upload_file")
+        uploaded_file = st.file_uploader("Select Evidence File (SAR, met-ocean NC/CSV/GeoTIFF, AIS, etc.)", key="ev_upload_file")
         
         col1, col2 = st.columns(2)
         with col1:
-            ev_type = st.selectbox("Evidence Type", ["sar_image", "oil_mask", "ais", "met_ocean", "research_note", "other"])
-            ev_source = st.text_input("Provider / Source", value=selected_case.get("source") or "Sentinel-1A")
-            ev_timestamp = st.text_input("Acquisition Timestamp", value=selected_case.get("observation_timestamp") or "")
+            ev_type = st.selectbox("Evidence Type", ["sar_image", "oil_mask", "ocean_current", "wind", "wave", "met_ocean", "ais", "research_note", "other"])
+            ev_source = st.text_input("Provider / Source", value=selected_case.get("source") or "Copernicus Marine / ERA5")
+            ev_timestamp = st.text_input("Acquisition / Observation Timestamp", value=selected_case.get("observation_timestamp") or "")
         with col2:
             is_synth = st.checkbox("Synthetic / Simulated Data", value=False)
             is_verified = st.checkbox("Human Expert Verified", value=False)
@@ -228,7 +229,7 @@ with tabs[2]:
         evidence_items = manifest.get("evidence", [])
         output_masks = manifest.get("oil_masks", [])
         
-        st.subheader(f"Uploaded Original Evidence ({len(evidence_items)})")
+        st.subheader(f"Uploaded Evidence Records ({len(evidence_items)})")
         if not evidence_items:
             st.info("No evidence uploaded yet for this case.")
         else:
@@ -521,9 +522,90 @@ with tabs[4]:
 
 
 # ----------------------------------------------------
-# TAB 6: PROVENANCE AUDIT
+# TAB 6: HINDCAST READINESS RUNNER
 # ----------------------------------------------------
 with tabs[5]:
+    st.header("Met-Ocean Environmental & Hindcast Readiness Engine")
+    st.caption("Pre-flight scientific validator ensuring environmental forcing data covers the spill region and requested time window.")
+    
+    if not selected_case:
+        st.warning("Please select a case from the sidebar.")
+    else:
+        case_id = selected_case.get("case_id")
+        case_res = api_get(f"/cases/{case_id}")
+        fresh_case = case_res.json() if case_res and case_res.status_code == 200 else selected_case
+        
+        st.markdown("---")
+        st.subheader("Hindcast Validation Settings")
+        c_h1, c_h2 = st.columns(2)
+        with c_h1:
+            req_hours = st.number_input("Requested Hindcast Duration (hours)", min_value=1.0, max_value=168.0, value=12.0, step=1.0)
+        with c_h2:
+            req_waves = st.checkbox("Require Wave / Stokes Drift Forcing", value=False)
+
+        if st.button("🚀 Check Hindcast Readiness", type="primary"):
+            payload = {
+                "hindcast_hours": req_hours,
+                "require_waves": req_waves,
+            }
+            with st.spinner("Validating environmental spatial/temporal data coverage..."):
+                res = api_post(f"/cases/{case_id}/analysis/hindcast-readiness", json_data=payload)
+                
+            if res and res.status_code == 200:
+                read_res = res.json()
+                st.session_state["latest_readiness_analysis"] = read_res
+                st.rerun()
+            elif res:
+                st.error(f"Readiness Check Failed ({res.status_code}): {res.text}")
+
+        # Render latest readiness analysis output
+        latest_read = st.session_state.get("latest_readiness_analysis")
+        if latest_read and latest_read.get("case_id") == case_id:
+            st.markdown("---")
+            st.subheader("ENVIRONMENTAL READINESS RESULTS")
+            st.markdown(f"**Analysis ID:** `{latest_read.get('analysis_id', 'N/A')}` | **Status:** `{latest_read.get('status', 'N/A')}`")
+            
+            res_d = latest_read.get("result") or {}
+            ready_bool = res_d.get("ready_for_hindcast", False)
+            reasons_list = res_d.get("reasons") or []
+            warnings_list = latest_read.get("warnings") or []
+
+            # Overall Readiness Banner
+            if ready_bool:
+                st.success("✅ **READY FOR HINDCAST:** Case contains georeferenced geometry and complete met-ocean forcing coverage!")
+            else:
+                st.warning("⚠️ **INSUFFICIENT DATA FOR HINDCAST:** Environmental observations do not satisfy pre-flight requirements.")
+
+            # Summary Cards
+            st.markdown("### Pre-Flight Requirement Summary")
+            k1, k2, k3, k4, k5 = st.columns(5)
+            
+            is_georef = res_d.get("spill_georeferenced", False)
+            k1.metric("Spill Georeferenced", "YES 🟢" if is_georef else "NO 🔴")
+            
+            obs_t = res_d.get("observation_time_utc")
+            k2.metric("Observation Time", obs_t[:16].replace("T", " ") if obs_t else "MISSING 🔴")
+
+            cov_dict = res_d.get("environmental_coverage") or {}
+            curr_info = cov_dict.get("ocean_current") or {}
+            wind_info = cov_dict.get("wind") or {}
+            wave_info = cov_dict.get("wave") or {}
+
+            k3.metric("Ocean Current", "PASS 🟢" if curr_info.get("spatial_coverage") and curr_info.get("temporal_coverage") else ("FAIL 🔴" if curr_info.get("present") else "MISSING 🔴"))
+            k4.metric("Wind Data", "PASS 🟢" if wind_info.get("spatial_coverage") and wind_info.get("temporal_coverage") else ("FAIL 🔴" if wind_info.get("present") else "MISSING 🔴"))
+            k5.metric("Wave Data", "PASS 🟢" if wave_info.get("spatial_coverage") and wave_info.get("temporal_coverage") else ("OPTIONAL ⚪" if not req_waves else "MISSING 🔴"))
+
+            # Detailed Failure / Warning Reasons
+            if warnings_list or reasons_list:
+                st.markdown("### Missing Data & Coverage Warnings")
+                for w in warnings_list:
+                    st.error(f"• {w}")
+
+
+# ----------------------------------------------------
+# TAB 7: PROVENANCE AUDIT
+# ----------------------------------------------------
+with tabs[6]:
     st.header("Provenance & Audit Trail")
     if not selected_case:
         st.warning("Please select a case from the sidebar.")
@@ -560,6 +642,9 @@ with tabs[5]:
                         st.markdown(f"- **Source Oil Detection Analysis ID:** `{cfg.get('source_oil_detection_analysis_id')}`")
                         st.markdown(f"- **Source Binary Mask SHA256:** `{cfg.get('source_binary_mask_sha256')}`")
                         st.markdown(f"- **Min Component Size (pixels):** `{cfg.get('min_component_size_pixels')}`")
+                    elif mod == "hindcast_readiness":
+                        st.markdown(f"- **Requested Duration (hours):** `{cfg.get('hindcast_hours')}`")
+                        st.markdown(f"- **Require Waves:** `{cfg.get('require_waves')}`")
                     
                     st.markdown("#### Execution Timestamps")
                     st.markdown(f"- **Started At:** `{res_item.get('started_at', 'N/A')}`")
@@ -567,16 +652,14 @@ with tabs[5]:
                     
                     res_d = res_item.get("result") or {}
                     if res_d:
-                        bin_hash = res_d.get("binary_mask_sha256") or res_d.get("contour_overlay_sha256") or res_d.get("geometry_json_sha256") or "Not available"
-                        prob_hash = res_d.get("probability_mask_sha256") or res_d.get("geojson_sha256") or "Not available"
-                        st.markdown("#### Generated Output Hashes")
+                        st.markdown("#### Generated Results Payload")
                         st.json(res_d)
 
 
 # ----------------------------------------------------
-# TAB 7: SYSTEM MODULE STATUS TRACKER
+# TAB 8: SYSTEM MODULE STATUS TRACKER
 # ----------------------------------------------------
-with tabs[6]:
+with tabs[7]:
     st.header("SamudraNetra Module Status Tracker")
     if not selected_case:
         st.warning("Please select a case from the sidebar.")
@@ -592,7 +675,7 @@ with tabs[6]:
         modules_info = [
             ("Oil Detection", "oil_detection", "U-Net SAR oil spill segmentation engine"),
             ("Spill Geometry", "spill_geometry", "Geospatial contouring & area polygon calculation"),
-            ("Hindcast", "hindcast", "Met-ocean wind/current drift backtracking"),
+            ("Hindcast Readiness", "hindcast", "Environmental forcing coverage validator"),
             ("AIS Correlation", "ais_correlation", "Historical vessel trajectory matching"),
             ("Attribution", "attribution", "Explainable vessel spill attribution score"),
         ]
@@ -619,9 +702,9 @@ with tabs[6]:
 
 
 # ----------------------------------------------------
-# TAB 8: ANALYST QUESTIONS
+# TAB 9: ANALYST QUESTIONS
 # ----------------------------------------------------
-with tabs[7]:
+with tabs[8]:
     st.header("Analyst Notes & Questions")
     if not selected_case:
         st.warning("Please select a case from the sidebar.")
