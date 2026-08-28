@@ -17,3 +17,12 @@ def test_small_unet_cuda_if_available():
     y = model(x)
     assert y.device == next(model.parameters()).device
     assert y.shape == (1, 1, 128, 128)
+
+
+def test_small_unet_two_channel_forward_pass():
+    model = SmallUNet(in_channels=2, out_channels=1, base=8)
+    x = torch.randn(2, 2, 64, 64)
+    y = model(x)
+
+    assert model.in_channels == 2
+    assert y.shape == (2, 1, 64, 64)
