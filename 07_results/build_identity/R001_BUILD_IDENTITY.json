@@ -1,0 +1,17 @@
+{
+  "version": "0.9.0-rc1",
+  "git_commit_hash": "e794bcb5765fa778b7eab1b74ab82e4bfec4e754",
+  "browser_url": "http://localhost:8080",
+  "backend_url": "http://localhost:8000/health",
+  "timestamp_utc": "2026-09-01T07:02:58.721915+00:00",
+  "frontend_asset_hashes": {
+    "app.js": "5a9eb61b9b9d7b9b86c2681651ef14f039b0cf11af1bfb70870a1fdff6b6ac6b",
+    "index.html": "b01d381047ad76deab42ded58590caa5316f5d33642718598d40ad211f2fcda9",
+    "styles.css": "bacb6b39a188bdc2d08f65712c4570d84a9d28551b9a3f0e4f672b3b2c86f48c"
+  },
+  "api_key_required_watermark_count": 0,
+  "five_domain_navigation_pass": true,
+  "basemap_clean_pass": true,
+  "default_normal_case_pass": true,
+  "status": "PASS"
+}

@@ -27,7 +27,19 @@ def analyze_spill_geometry(
     over_p = Path(overlay_out_path)
 
     # 1. Read binary mask
-    mask = cv2.imread(str(bin_p), cv2.IMREAD_GRAYSCALE)
+    mask = None
+    try:
+        mask = cv2.imread(str(bin_p), cv2.IMREAD_GRAYSCALE)
+    except Exception:
+        mask = None
+
+    if mask is None:
+        try:
+            with rasterio.open(bin_p) as m_src:
+                mask = m_src.read(1)
+        except Exception:
+            mask = None
+
     if mask is None:
         raise ValueError(f"Unable to read binary mask image from: {bin_p}")
 
@@ -37,7 +49,22 @@ def analyze_spill_geometry(
     total_oil_pixels = int((bin_mask > 0).sum())
 
     # Read base source image for visualization overlay
-    sar_raw = cv2.imread(str(src_p), cv2.IMREAD_GRAYSCALE)
+    sar_raw = None
+    try:
+        sar_raw = cv2.imread(str(src_p), cv2.IMREAD_GRAYSCALE)
+    except Exception:
+        sar_raw = None
+
+    if sar_raw is None:
+        try:
+            with rasterio.open(src_p) as r_src:
+                r_arr = r_src.read(1)
+                r_valid = np.nan_to_num(r_arr, nan=0.0)
+                r_min, r_max = r_valid.min(), r_valid.max()
+                sar_raw = ((r_valid - r_min) / (r_max - r_min + 1e-6) * 255.0).astype(np.uint8)
+        except Exception:
+            sar_raw = None
+
     if sar_raw is not None and sar_raw.shape == (h, w):
         overlay_img = cv2.cvtColor(sar_raw, cv2.COLOR_GRAY2BGR)
     else:

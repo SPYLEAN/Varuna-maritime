@@ -1,0 +1,9 @@
+{
+  "environment": "Production Demo / Offline-Safe Operation",
+  "backend_url": "http://localhost:8000",
+  "frontend_url": "http://localhost:8080",
+  "dependencies_status": "FROZEN_PASS",
+  "cors_headers_status": "SECURE_PASS",
+  "offline_tile_fallback": "READY",
+  "clean_room_manifest": "VERIFIED"
+}

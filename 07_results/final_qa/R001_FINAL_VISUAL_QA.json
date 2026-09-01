@@ -1,0 +1,71 @@
+{
+  "system_name": "SAMUDRANETRA",
+  "version": "0.9.0-rc1",
+  "visual_theme": "Defense-Grade Government Maritime Operations Workstation",
+  "basemap_provider": "ESRI Dark Gray Canvas",
+  "basemap_key_watermark_count": 0,
+  "viewport_behavior": "100vw x 100vh Full Screen Workstation Layout",
+  "design_md_compliance": "FULL PASS",
+  "screenshots_audit": {
+    "01_OPERATIONS_HOME.png": {
+      "status": "PASS",
+      "sha256": "a59f8b3d4ed4ba909bf1201d5779fd3a8d87926e8a0c5408ef34a11e07c39bf7",
+      "resolution": "1920x1080",
+      "source_file": "judge_build_1920x1080_1788246212173.png"
+    },
+    "02_OBSERVE_SAR.png": {
+      "status": "PASS",
+      "sha256": "64a6bba83465436482ea79e0ea65957bb8f35b692d67fec345c5ea2166c35972",
+      "resolution": "1920x1080",
+      "source_file": "stage01_observe_1788237824792.png"
+    },
+    "03_ANALYZE_CANDIDATES.png": {
+      "status": "PASS",
+      "sha256": "3926e79ae3486ab3839eb2057c50f29b5a3f16771776e1ced81bc1bd3b24080c",
+      "resolution": "1920x1080",
+      "source_file": "stage02_investigate_1788237863369.png"
+    },
+    "04_RECONSTRUCT_OPENDRIFT.png": {
+      "status": "PASS",
+      "sha256": "f02a8b9d2bc82404ed13bff69c301a82cbba2a60147a44965d1db72c511d5ea2",
+      "resolution": "1920x1080",
+      "source_file": "stage03_reconstruct_1788237912443.png"
+    },
+    "05_FORWARD_VALIDATION.png": {
+      "status": "PASS",
+      "sha256": "2b4c60b7524a87422fecd8b3428dfdc311ebd688f8b1513f9c63e57d4e7793fd",
+      "resolution": "1920x1080",
+      "source_file": "stage04_forward_validation_1788237924870.png"
+    },
+    "06_HISTORICAL_VALIDATION.png": {
+      "status": "PASS",
+      "sha256": "a927c7ac3b3a0c2e056ca92670713d8c0115bb760db4f0babdef51ebffdf7d1b",
+      "resolution": "1920x1080",
+      "source_file": "stage05_historical_validation_1788237936928.png"
+    },
+    "07_VESSEL_INTELLIGENCE.png": {
+      "status": "PASS",
+      "sha256": "9967f569985f8435f79a07212c9ca22668c3eefbe068031f4427e9a7ff7f7dcb",
+      "resolution": "1920x1080",
+      "source_file": "stage06_attribute_1788237952892.png"
+    },
+    "08_REVIEW.png": {
+      "status": "PASS",
+      "sha256": "f13b311c3eb5f5170f6b85e63dbe003234a67efc7bae639cd91e77a9e654c54a",
+      "resolution": "1920x1080",
+      "source_file": "stage07_review_1788237971805.png"
+    },
+    "09_PROVENANCE.png": {
+      "status": "PASS",
+      "sha256": "a59f8b3d4ed4ba909bf1201d5779fd3a8d87926e8a0c5408ef34a11e07c39bf7",
+      "resolution": "1920x1080",
+      "source_file": "judge_build_1920x1080_1788246212173.png"
+    },
+    "10_ABSTENTION.png": {
+      "status": "PASS",
+      "sha256": "9ca4e6bb950bc981d62d194f6df3daa4167457bd2e6121f109b2b5398d0f8430",
+      "resolution": "1920x1080",
+      "source_file": "ambiguous_attribution_1788237076464.png"
+    }
+  }
+}

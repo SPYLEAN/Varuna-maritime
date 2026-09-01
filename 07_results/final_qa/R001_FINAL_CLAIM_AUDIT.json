@@ -1,0 +1,13 @@
+{
+  "claim_guard_status": "ACTIVE_VERIFIED",
+  "forbidden_words_audit": {
+    "AI CONFIDENCE": 0,
+    "CULPRIT": 0,
+    "GUILTY": 0,
+    "TRUE SOURCE": 0,
+    "CONFIRMED VESSEL": 0,
+    "EXACT SOURCE": 0,
+    "100% ACCURACY": 0
+  },
+  "scientific_wording_compliance": "100%"
+}

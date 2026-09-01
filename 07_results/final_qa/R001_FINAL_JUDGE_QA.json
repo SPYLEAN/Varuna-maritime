@@ -1,0 +1,30 @@
+{
+  "system_name": "SAMUDRANETRA",
+  "version": "0.9.0-rc1",
+  "git_commit": "e794bcb5765fa778b7eab1b74ab82e4bfec4e754",
+  "release_tag": "SAMUDRANETRA-0.9.0-RC1-JUDGE",
+  "timestamp_utc": "2026-09-01T07:52:34.831576+00:00",
+  "overall_status": "PASS",
+  "audit_summary": {
+    "total_test_suite_items": 159,
+    "test_suite_passed": 159,
+    "test_suite_failed": 0,
+    "pytest_pass_rate": 1.0,
+    "ui_watermark_occurrences": 0,
+    "invalid_presentation_values": 0,
+    "synthetic_ais_disclaimer_present": true,
+    "abstention_logic_verified": true
+  },
+  "golden_path_sequence": [
+    "01_OPERATIONS_HOME",
+    "02_OBSERVE_SAR",
+    "03_ANALYZE_CANDIDATES",
+    "04_RECONSTRUCT_OPENDRIFT",
+    "05_FORWARD_VALIDATION",
+    "06_HISTORICAL_VALIDATION",
+    "07_VESSEL_INTELLIGENCE",
+    "08_REVIEW",
+    "09_PROVENANCE",
+    "10_ABSTENTION"
+  ]
+}

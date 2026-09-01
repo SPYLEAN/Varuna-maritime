@@ -1,0 +1,19 @@
+{
+  "product": "SAMUDRANETRA",
+  "release_tag": "SAMUDRANETRA-0.9.0-RC1-JUDGE",
+  "version": "0.9.0-rc1",
+  "git_commit": "e794bcb5765fa778b7eab1b74ab82e4bfec4e754",
+  "timestamp_utc": "2026-09-01T07:52:34.831576+00:00",
+  "deliverables": [
+    "07_results/final_qa/R001_FINAL_JUDGE_QA.json",
+    "07_results/final_qa/R001_FINAL_VISUAL_QA.json",
+    "07_results/final_qa/R001_FINAL_DEMO_CHECKLIST.json",
+    "07_results/final_qa/R001_FINAL_DEPLOYMENT_CHECK.json",
+    "07_results/final_qa/R001_FINAL_CLAIM_AUDIT.json",
+    "07_results/final_qa/R001_FINAL_RELEASE_MANIFEST.json",
+    "07_results/final_qa/R001_FINAL_QA_SUMMARY.md",
+    "demo/01_OPERATIONS_HOME.png .. 10_ABSTENTION.png",
+    "demo/SAMUDRANETRA_FINAL_DEMO.mp4",
+    "demo/SAMUDRANETRA_90SEC_BACKUP.mp4"
+  ]
+}

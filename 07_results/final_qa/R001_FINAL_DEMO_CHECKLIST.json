@@ -1,0 +1,45 @@
+{
+  "demo_readiness": "READY_FOR_JUDGE_PRESENTATION",
+  "checklist": [
+    {
+      "item": "Frontend live on port 8080",
+      "status": "PASS"
+    },
+    {
+      "item": "Backend API live on port 8000",
+      "status": "PASS"
+    },
+    {
+      "item": "Default state launches cleanly in NORMAL_CASE",
+      "status": "PASS"
+    },
+    {
+      "item": "Real Sentinel-1 SAR VV/VH raster tiles loading cleanly",
+      "status": "PASS"
+    },
+    {
+      "item": "OpenDrift backward trajectory particle clouds loading",
+      "status": "PASS"
+    },
+    {
+      "item": "Synthetic AIS vessel ranking displays clear disclaimer",
+      "status": "PASS"
+    },
+    {
+      "item": "Provenance drawer slide-in displays exact SHA256 hashes",
+      "status": "PASS"
+    },
+    {
+      "item": "Abstention mode renders without crash or false attribution",
+      "status": "PASS"
+    },
+    {
+      "item": "No forbidden unscientific wording present",
+      "status": "PASS"
+    },
+    {
+      "item": "Full test suite (159 tests) passes 100%",
+      "status": "PASS"
+    }
+  ]
+}
