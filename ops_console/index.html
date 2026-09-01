@@ -3,235 +3,483 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SamudraNetra — Maritime Environmental Intelligence</title>
-  <meta name="description" content="Satellite SAR, ocean-physics reconstruction and vessel intelligence for maritime oil-spill investigation.">
+  <title>VARUNA — Maritime Environmental Intelligence Workstation</title>
+  <meta name="description" content="Operational satellite SAR, ocean-physics reconstruction and vessel intelligence workstation.">
   
-  <!-- Typography Fonts (Outfit + Inter + JetBrains Mono) -->
+  <!-- Typography Fonts (Inter + JetBrains Mono) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
-  <!-- Leaflet GIS Mapping CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Local Production Leaflet GIS Engine -->
+  <link rel="stylesheet" href="leaflet.css">
+  <script src="leaflet.js"></script>
   
-  <!-- Application CSS (Stitch Redesign) -->
+  <!-- Application CSS -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="sn-theme-dark">
 
   <!-- ================================================== -->
-  <!-- 1. TOP COMMAND BAR (GLASSMORPHIC HEADER) -->
+  <!-- 1. TOP DESKTOP MENU BAR -->
   <!-- ================================================== -->
-  <header class="sn-command-bar">
-    <div class="sn-command-left">
-      <div class="sn-brand" onclick="window.openOperationsHome()">
-        <div class="sn-brand-icon-wrapper">
-          <span class="sn-brand-icon">⚓</span>
-        </div>
-        <div class="sn-brand-text">
-          <span class="sn-brand-title">SAMUDRANETRA</span>
-          <span class="sn-brand-sub">MARITIME INTELLIGENCE</span>
-        </div>
+  <header class="sn-desktop-menubar">
+    <div class="sn-menu-left">
+      <div class="sn-app-logo" onclick="window.switchDomain('HOME')">
+        <span class="sn-logo-icon">🌊</span>
+        <span class="sn-logo-title">VARUNA</span>
+        <span class="sn-version-tag">v1.0.0-rc1</span>
       </div>
-      <button class="sn-top-btn" onclick="window.openNewInvestigationModal()">
-        <span style="color: var(--accent-cyan);">+ NEW INVESTIGATION</span>
-      </button>
-      <button class="sn-top-btn" onclick="window.runAutomatedInvestigation()">
-        <span style="color: var(--status-good);">⚡ RUN AUTOMATED INVESTIGATION</span>
-      </button>
-      <div class="sn-case-badge">
-        <span class="sn-meta-label">CASE:</span>
-        <span class="sn-meta-val" id="header-case-id">R001 — Mauritius</span>
-        <span class="sn-mode-tag" id="header-case-mode">HISTORICAL CASE REVIEW</span>
-      </div>
+      <nav class="sn-top-menu-items">
+        <div class="sn-menu-item">File
+          <div class="sn-dropdown-content">
+            <a onclick="window.openNewInvestigationModal()">+ New Investigation...</a>
+            <a onclick="window.switchDomain('HOME')">Open Case Registry</a>
+            <hr>
+            <a onclick="window.toggleDataHealthModal()">Data Health & Sources</a>
+            <a onclick="window.toggleProvenanceDrawer()">Export Provenance Manifest</a>
+          </div>
+        </div>
+        <div class="sn-menu-item">Investigation
+          <div class="sn-dropdown-content">
+            <a onclick="window.switchDomain('OBSERVE')">01 Observe SAR</a>
+            <a onclick="window.switchDomain('ANALYZE')">02 Slick Candidate Triage</a>
+            <a onclick="window.switchDomain('RECONSTRUCT')">03 Transport Reconstruction</a>
+            <a onclick="window.switchDomain('ATTRIBUTE')">04 Vessel Intelligence</a>
+            <a onclick="window.switchDomain('REVIEW')">05 Incident Briefing Matrix</a>
+          </div>
+        </div>
+        <div class="sn-menu-item">Satellite
+          <div class="sn-dropdown-content">
+            <a onclick="window.switchSarBand('VV')">Band: Sigma0_VV_db</a>
+            <a onclick="window.switchSarBand('VH')">Band: Sigma0_VH_db</a>
+            <a onclick="window.switchSarBand('COMPARE')">Dual-Pol Comparison</a>
+            <hr>
+            <a onclick="window.runSlickDetection()">Run Slick Detection Pipeline</a>
+          </div>
+        </div>
+        <div class="sn-menu-item">Physics
+          <div class="sn-dropdown-content">
+            <a onclick="window.switchPhysicsMode('HINDCAST')">OpenDrift Backward Hindcast</a>
+            <a onclick="window.switchPhysicsMode('FORECAST')">OpenDrift Forward Forecast</a>
+            <hr>
+            <a onclick="window.setScenario('A')">Scenario A (Currents Only)</a>
+            <a onclick="window.setScenario('B')">Scenario B (Currents + Wind)</a>
+            <a onclick="window.setScenario('C')">Scenario C (Currents + Wind + Stokes)</a>
+          </div>
+        </div>
+        <div class="sn-menu-item">Vessels
+          <div class="sn-dropdown-content">
+            <a onclick="window.loadSyntheticAis()">Load Synthetic AIS Dataset</a>
+            <a onclick="window.runVesselCorrelation()">Run Vessel Correlation</a>
+          </div>
+        </div>
+        <div class="sn-menu-item">Help
+          <div class="sn-dropdown-content">
+            <a onclick="window.toggleProvenanceDrawer()">Cryptographic Provenance Guide</a>
+          </div>
+        </div>
+      </nav>
     </div>
 
-    <div class="sn-command-center">
-      <div class="sn-mission-chip">
-        <span class="sn-chip-dot"></span>
-        <span class="sn-chip-txt" id="header-sat-chip">SENTINEL-1B | 10 AUG 2020 01:38:07 UTC</span>
-      </div>
-    </div>
-
-    <div class="sn-command-right">
-      <button class="sn-top-btn" onclick="window.toggleDataHealthModal()">
-        <span>🟢 DATA HEALTH</span>
-      </button>
-      <button class="sn-top-btn" onclick="window.toggleProvenanceDrawer()">
-        <span>📜 PROVENANCE</span>
-      </button>
-      <div class="sn-status-group">
-        <span class="sn-badge sn-badge-green">FASTAPI API CONNECTED</span>
-        <span class="sn-badge sn-badge-amber">PHYSICS READY</span>
-        <span class="sn-badge sn-badge-purple" id="header-ais-badge">AIS: SYNTHETIC DEMO</span>
-      </div>
-
-      <!-- Edge State Simulator -->
-      <div class="sn-simulator-box">
-        <label for="state-simulator" class="sn-sim-label">EDGE STATE:</label>
-        <select id="state-simulator" class="sn-sim-select" onchange="window.switchEdgeState(this.value)">
-          <option value="NORMAL_CASE" selected>Normal Case (R001 Wakashio)</option>
-          <option value="AMBIGUOUS_ATTRIBUTION">Ambiguous Attribution State</option>
-          <option value="NO_CREDIBLE_CANDIDATE">No Credible Candidate State</option>
-          <option value="INSUFFICIENT_DATA">Insufficient AIS Data State</option>
-          <option value="NON_VESSEL_SOURCE">Non-Vessel Source Possible</option>
-          <option value="UNCERTAIN_PHYSICS">Uncertain Physics Dispersion</option>
-          <option value="EMPTY_SAR_CANDIDATES">No Valid SAR Candidate State</option>
-        </select>
-      </div>
+    <div class="sn-menu-right">
+      <span class="sn-status-badge green">● SYSTEM READY</span>
+      <button class="sn-menu-btn" onclick="window.toggleDataHealthModal()">🟢 DATA HEALTH</button>
+      <button class="sn-menu-btn" onclick="window.toggleProvenanceDrawer()">📜 PROVENANCE</button>
     </div>
   </header>
 
   <!-- ================================================== -->
-  <!-- 2. MAIN WORKSPACE GRID -->
+  <!-- 2. CASE STATUS & WORKSTATION HEADER BAR -->
   <!-- ================================================== -->
-  <main class="sn-workspace">
+  <div class="sn-case-header-bar">
+    <div class="sn-case-info">
+      <span class="sn-case-label">ACTIVE CASE:</span>
+      <span class="sn-case-id" id="header-case-id">R001 — Mauritius</span>
+      <span class="sn-case-mode-tag" id="header-case-mode">HISTORICAL CASE REVIEW</span>
+    </div>
+    <div class="sn-case-meta">
+      <span class="sn-meta-item">SAR PRODUCT: <strong>Sentinel-1B IW GRDH</strong></span>
+      <span class="sn-meta-item">ACQUISITION: <strong>2020-08-10 01:38 UTC</strong></span>
+      <span class="sn-meta-item">LOCATION: <strong>Point d'Esny, Mauritius</strong></span>
+    </div>
+  </div>
 
-    <!-- LEFT WORKFLOW NAVIGATION (5 OPERATIONAL DOMAINS) -->
+  <!-- ================================================== -->
+  <!-- 3. MAIN WORKSTATION SHELL -->
+  <!-- ================================================== -->
+  <main class="sn-app-shell">
+
+    <!-- LEFT WORKFLOW NAVIGATION (170px WORKSTATION MODES) -->
     <nav class="sn-workflow-nav">
-      <div class="sn-nav-title">OPERATIONAL DOMAINS</div>
-      
-      <button class="sn-nav-btn active" data-stage="OBSERVE" onclick="window.switchStage('OBSERVE')">
-        <span class="sn-nav-num">01</span>
-        <span class="sn-nav-txt">OBSERVE</span>
-        <span class="sn-nav-indicator"></span>
+      <div class="sn-nav-group-label">WORKSTATION MODES</div>
+
+      <button class="sn-nav-btn active" data-domain="HOME" onclick="window.switchDomain('HOME')">
+        <span class="sn-nav-icon">🏠</span>
+        <span class="sn-nav-txt">HOME</span>
       </button>
 
-      <button class="sn-nav-btn" data-stage="ANALYZE" onclick="window.switchStage('ANALYZE')">
-        <span class="sn-nav-num">02</span>
-        <span class="sn-nav-txt">ANALYZE</span>
-        <span class="sn-nav-indicator"></span>
+      <button class="sn-nav-btn" data-domain="OBSERVE" onclick="window.switchDomain('OBSERVE')">
+        <span class="sn-nav-icon">📡</span>
+        <span class="sn-nav-txt">01 OBSERVE</span>
       </button>
 
-      <button class="sn-nav-btn" data-stage="RECONSTRUCT" onclick="window.switchStage('RECONSTRUCT')">
-        <span class="sn-nav-num">03</span>
-        <span class="sn-nav-txt">RECONSTRUCT</span>
-        <span class="sn-nav-indicator"></span>
+      <button class="sn-nav-btn" data-domain="ANALYZE" onclick="window.switchDomain('ANALYZE')">
+        <span class="sn-nav-icon">🔍</span>
+        <span class="sn-nav-txt">02 ANALYZE</span>
       </button>
 
-      <button class="sn-nav-btn" data-stage="ATTRIBUTE" onclick="window.switchStage('ATTRIBUTE')">
-        <span class="sn-nav-num">04</span>
-        <span class="sn-nav-txt">VESSEL INTELLIGENCE</span>
-        <span class="sn-nav-indicator"></span>
+      <button class="sn-nav-btn" data-domain="RECONSTRUCT" onclick="window.switchDomain('RECONSTRUCT')">
+        <span class="sn-nav-icon">🌊</span>
+        <span class="sn-nav-txt">03 RECONSTRUCT</span>
       </button>
 
-      <button class="sn-nav-btn" data-stage="REVIEW" onclick="window.switchStage('REVIEW')">
-        <span class="sn-nav-num">05</span>
-        <span class="sn-nav-txt">REVIEW</span>
-        <span class="sn-nav-indicator"></span>
+      <button class="sn-nav-btn" data-domain="ATTRIBUTE" onclick="window.switchDomain('ATTRIBUTE')">
+        <span class="sn-nav-icon">⚓</span>
+        <span class="sn-nav-txt">04 VESSELS</span>
       </button>
 
-      <div class="sn-nav-footer">
-        <div class="sn-nav-info-lbl">OPERATIONAL STATUS</div>
-        <div class="sn-nav-info-val" id="nav-op-status">ANALYST REVIEW REQUIRED</div>
-        <div class="sn-nav-info-lbl" style="margin-top: 8px;">DATA FRESHNESS</div>
-        <div class="sn-nav-info-val" style="color: var(--accent-cyan);">LATEST OBSERVATION</div>
-      </div>
+      <button class="sn-nav-btn" data-domain="REVIEW" onclick="window.switchDomain('REVIEW')">
+        <span class="sn-nav-icon">📜</span>
+        <span class="sn-nav-txt">05 REVIEW</span>
+      </button>
+
+      <div class="sn-nav-spacer"></div>
+      <button class="sn-new-case-btn" onclick="window.openNewInvestigationModal()">+ NEW CASE</button>
     </nav>
 
-    <!-- HERO GEOSPATIAL MAP WORKSPACE -->
-    <section class="sn-hero-map-container">
-      
-      <!-- SAR Band Switcher HUD -->
-      <div class="sn-band-hud">
-        <span class="sn-hud-lbl">SAR BAND:</span>
-        <button class="sn-band-btn active" id="btn-band-vv" onclick="window.switchSarBand('VV')">VV</button>
-        <button class="sn-band-btn" id="btn-band-vh" onclick="window.switchSarBand('VH')">VH</button>
-        <button class="sn-band-btn" id="btn-band-ratio" onclick="window.switchSarBand('RATIO')">VV/VH RATIO</button>
-      </div>
+    <!-- WORKSPACE AREA: 6 DOMAIN-PURE WORKSPACES -->
+    <div class="sn-workspace-area">
 
-      <!-- Pixel Value Probe HUD -->
-      <div class="sn-pixel-probe-hud">
-        <span class="sn-probe-item">LAT: <strong id="probe-lat">-20.4382°</strong></span>
-        <span class="sn-probe-item">LON: <strong id="probe-lon">57.7432°</strong></span>
-        <span class="sn-probe-item">SIGMA0: <strong id="probe-val">-18.40 dB</strong></span>
-        <span class="sn-probe-item">STATUS: <strong id="probe-status" style="color: var(--status-good);">TARGET IN BOUNDS</strong></span>
-      </div>
+      <!-- ================================================== -->
+      <!-- DOMAIN 0: HOME WORKSPACE -->
+      <!-- ================================================== -->
+      <section class="sn-domain-workspace" id="domain-home">
+        <div class="sn-home-container">
+          <div class="sn-home-header">
+            <div>
+              <h1 class="sn-home-title">VARUNA</h1>
+              <p class="sn-home-sub">Maritime Environmental Intelligence & Remote Sensing Workstation</p>
+            </div>
+            <button class="sn-action-btn primary" onclick="window.openNewInvestigationModal()">+ NEW INVESTIGATION</button>
+          </div>
 
-      <!-- Subview Tabs Bar (Visible in RECONSTRUCT domain) -->
-      <div class="sn-subview-bar hidden" id="sn-subview-bar">
-        <button class="sn-subtab active" id="btn-mode-hindcast" onclick="window.switchPhysicsMode('HINDCAST')">HINDCAST (T0 → T-96h)</button>
-        <button class="sn-subtab" id="btn-mode-forecast" onclick="window.switchPhysicsMode('FORECAST')">FORECAST (T0 → T+48h)</button>
-        <button class="sn-subtab" id="btn-sub-forward" onclick="window.switchReconstructSubview('FORWARD')">FORWARD PHYSICAL CLOSURE</button>
-        <button class="sn-subtab" id="btn-sub-historical" onclick="window.switchReconstructSubview('HISTORICAL')">POST-FREEZE HISTORICAL VALIDATION</button>
-      </div>
+          <div class="sn-card" style="margin-bottom: 20px;">
+            <div class="sn-card-title">ACTIVE INVESTIGATION REGISTRY</div>
+            <table class="sn-ops-table">
+              <thead>
+                <tr>
+                  <th>INVESTIGATION ID</th>
+                  <th>INCIDENT NAME</th>
+                  <th>LOCATION</th>
+                  <th>OPERATIONAL MODE</th>
+                  <th>STATUS</th>
+                  <th>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="active-row">
+                  <td><strong>R001</strong></td>
+                  <td>Mauritius Oil Spill Incident</td>
+                  <td>Point d'Esny, Mauritius</td>
+                  <td><span class="sn-badge amber">HISTORICAL CASE REVIEW</span></td>
+                  <td><span class="sn-badge green">READY</span></td>
+                  <td><button class="sn-action-btn primary" onclick="window.switchDomain('OBSERVE')">OPEN WORKSTATION →</button></td>
+                </tr>
+                <tr>
+                  <td><strong>CUSTOM_CASE</strong></td>
+                  <td>Custom SAR Incident Upload</td>
+                  <td>User Coordinates</td>
+                  <td><span class="sn-badge blue">NEW OBSERVATION</span></td>
+                  <td><span class="sn-badge gray">STANDBY</span></td>
+                  <td><button class="sn-action-btn neutral" onclick="window.openNewInvestigationModal()">CONFIGURE</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-      <!-- Layer Control Panel Toggle Button -->
-      <button class="sn-layer-panel-toggle" onclick="window.toggleLayerPanel()">
-        <span>🥞 LAYERS & OVERLAYS</span>
-      </button>
-
-      <!-- Floating Layer Control Panel -->
-      <div class="sn-layer-panel hidden" id="sn-layer-panel">
-        <div class="sn-layer-header">
-          <span>GIS MAP LAYERS</span>
-          <button class="sn-close-btn" onclick="window.toggleLayerPanel()">×</button>
+          <div class="sn-card">
+            <div class="sn-card-title">DATA SOURCE HEALTH & MONITORED ARCHIVES</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+              <div class="sn-metric-box"><div class="sn-m-label">SAR SATELLITE</div><div class="sn-m-val green">SENTINEL-1B (READY)</div></div>
+              <div class="sn-metric-box"><div class="sn-m-label">OCEAN CURRENTS</div><div class="sn-m-val green">HYCOM 1/12° (READY)</div></div>
+              <div class="sn-metric-box"><div class="sn-m-label">WIND FIELDS</div><div class="sn-m-val green">ECMWF ERA5 (READY)</div></div>
+              <div class="sn-metric-box"><div class="sn-m-label">STOKES DRIFT</div><div class="sn-m-val green">CMEMS WAVES (READY)</div></div>
+            </div>
+          </div>
         </div>
-        <div class="sn-layer-list">
-          <label class="sn-layer-item"><input type="checkbox" id="layer-sat-footprint" checked onchange="window.updateMapLayers()"> Sentinel-1 SAR Footprint</label>
-          <label class="sn-layer-item"><input type="checkbox" id="layer-sar-candidates" checked onchange="window.updateMapLayers()"> Candidate Dark Spots (8)</label>
-          <label class="sn-layer-item"><input type="checkbox" id="layer-source-envelopes" checked onchange="window.updateMapLayers()"> Reconstructed Source Regions</label>
-          <label class="sn-layer-item"><input type="checkbox" id="layer-particles" checked onchange="window.updateMapLayers()"> OpenDrift Particle Cloud</label>
-          <label class="sn-layer-item"><input type="checkbox" id="layer-forward-closure" checked onchange="window.updateMapLayers()"> Forward Validation Cloud</label>
-          <label class="sn-layer-item"><input type="checkbox" id="layer-forecast-drift" checked onchange="window.updateMapLayers()"> Forecast Trajectory Cloud (T+48h)</label>
-          <label class="sn-layer-item"><input type="checkbox" id="layer-historical-truth" checked onchange="window.updateMapLayers()"> Historical Reference Marker</label>
-          <label class="sn-layer-item"><input type="checkbox" id="layer-ais-tracks" checked onchange="window.updateMapLayers()"> AIS Vessel Trajectories</label>
+      </section>
+
+      <!-- ================================================== -->
+      <!-- DOMAIN 1: OBSERVE WORKSPACE (REAL SAR VIEW) -->
+      <!-- ================================================== -->
+      <section class="sn-domain-workspace hidden" id="domain-observe">
+        <div class="sn-domain-grid">
+          <div class="sn-map-hero-wrapper">
+            <div class="sn-sar-toolbar">
+              <span class="sn-tb-label">SAR BAND:</span>
+              <button class="sn-tb-btn active" id="btn-band-observe-vv" onclick="window.switchSarBand('VV')">VV</button>
+              <button class="sn-tb-btn" id="btn-band-observe-vh" onclick="window.switchSarBand('VH')">VH</button>
+              <button class="sn-tb-btn" id="btn-band-observe-compare" onclick="window.switchSarBand('COMPARE')">VV/VH RATIO</button>
+              <span class="sn-tb-divider">|</span>
+              <button class="sn-tb-btn" onclick="window.fitSceneBounds()">FIT SCENE</button>
+            </div>
+
+            <div id="map-observe" class="sn-map-canvas"></div>
+          </div>
+
+          <aside class="sn-domain-inspector">
+            <div class="sn-explorer-card">
+              <div class="sn-explorer-header">SATELLITE PRODUCT EXPLORER</div>
+              <div class="sn-tree-view">
+                <div class="sn-tree-node root">R001 — MAURITIUS</div>
+                <div class="sn-tree-node branch expanded">▼ OBSERVATION</div>
+                <div class="sn-tree-node subbranch">└─ Sentinel-1B IW GRDH</div>
+                <div class="sn-tree-node leaf active" onclick="window.switchSarBand('VV')">├── [x] Sigma0_VV_db (Active)</div>
+                <div class="sn-tree-node leaf" onclick="window.switchSarBand('VH')">├── [ ] Sigma0_VH_db</div>
+                <div class="sn-tree-node subbranch">└─ ▼ Metadata</div>
+                <div class="sn-tree-node leaf meta">├── Product: S1B_IW_GRDH_1SDV...</div>
+                <div class="sn-tree-node leaf meta">├── Acq: 2020-08-10 01:38 UTC</div>
+                <div class="sn-tree-node leaf meta">└── Orbit: Relative 015</div>
+                
+                <div class="sn-tree-node branch expanded" style="margin-top: 10px;">▼ PROCESSING LINEAGE</div>
+                <div class="sn-tree-node leaf meta">├── Precise Orbit File Applied</div>
+                <div class="sn-tree-node leaf meta">├── Thermal Noise Removal</div>
+                <div class="sn-tree-node leaf meta">├── Radiometric Calibration (dB)</div>
+                <div class="sn-tree-node leaf meta">└── Terrain Correction (SRTM 3s)</div>
+              </div>
+            </div>
+
+            <div class="sn-card" style="margin-top: 12px;">
+              <div class="sn-card-title">PRIMARY OPERATIONAL ACTION</div>
+              <button class="sn-action-btn primary" style="width: 100%; padding: 10px;" onclick="window.runSlickDetection()">⚡ RUN SLICK DETECTION</button>
+            </div>
+          </aside>
         </div>
-      </div>
+      </section>
 
-      <!-- Leaflet GIS Map Canvas -->
-      <div id="sn-hero-map" class="sn-map-canvas"></div>
-    </section>
+      <!-- ================================================== -->
+      <!-- DOMAIN 2: ANALYZE WORKSPACE (SAR + CANDIDATE OVERLAYS) -->
+      <!-- ================================================== -->
+      <section class="sn-domain-workspace hidden" id="domain-analyze">
+        <div class="sn-domain-grid">
+          <div class="sn-map-hero-wrapper">
+            <div class="sn-sar-toolbar">
+              <span class="sn-tb-label">SAR BAND:</span>
+              <button class="sn-tb-btn active" id="btn-band-analyze-vv" onclick="window.switchSarBand('VV')">VV</button>
+              <button class="sn-tb-btn" id="btn-band-analyze-vh" onclick="window.switchSarBand('VH')">VH</button>
+              <button class="sn-tb-btn" id="btn-band-analyze-compare" onclick="window.switchSarBand('COMPARE')">VV/VH RATIO</button>
+            </div>
+            <div id="map-analyze" class="sn-map-canvas"></div>
+          </div>
 
-    <!-- RIGHT CONTEXT / EVIDENCE INSPECTOR -->
-    <aside class="sn-inspector-panel" id="sn-inspector-panel">
-      <!-- Dynamic Inspector Content Injected by app.js -->
-    </aside>
+          <aside class="sn-domain-inspector">
+            <div class="sn-explorer-card">
+              <div class="sn-explorer-header">SLICK CANDIDATE TRIAGE</div>
+              <div class="sn-tree-view">
+                <div class="sn-tree-node root">R001 — MAURITIUS</div>
+                <div class="sn-tree-node branch expanded">▼ SLICK ANALYSIS</div>
+                <div class="sn-tree-node leaf meta">├── 45 Triaged Candidate Groups</div>
+                <div class="sn-tree-node branch expanded">└── ▼ Physics Eligible (8 Source Hypotheses)</div>
+                <div class="sn-tree-node leaf cand" onclick="window.selectCandidate('C3929')">├── C3929 (0.98 km²)</div>
+                <div class="sn-tree-node leaf cand" onclick="window.selectCandidate('C001')">├── C001 (1.15 km²)</div>
+                <div class="sn-tree-node leaf cand" onclick="window.selectCandidate('C2973')">├── C2973 (0.85 km²)</div>
+                <div class="sn-tree-node leaf cand" onclick="window.selectCandidate('C4023')">├── C4023 (1.02 km²)</div>
+                <div class="sn-tree-node leaf cand" onclick="window.selectCandidate('C016')">├── C016 (0.74 km²)</div>
+                <div class="sn-tree-node leaf cand active" onclick="window.selectCandidate('C4053')">├── ★ C4053 (ML: 0.5818)</div>
+                <div class="sn-tree-node leaf cand" onclick="window.selectCandidate('C058')">├── C058 (0.91 km²)</div>
+                <div class="sn-tree-node leaf cand" onclick="window.selectCandidate('C062')">└── C062 (1.10 km²)</div>
+              </div>
+            </div>
 
+            <div class="sn-card" style="margin-top: 12px;">
+              <div class="sn-card-title">CANDIDATE EVIDENCE INSPECTOR</div>
+              <div class="sn-metric-grid">
+                <div class="sn-metric-box"><div class="sn-m-label">CANDIDATE ID</div><div class="sn-m-val cyan" id="analyze-cand-id">C4053</div></div>
+                <div class="sn-metric-box"><div class="sn-m-label">ML OIL SCORE</div><div class="sn-m-val green">0.5818</div></div>
+                <div class="sn-metric-box"><div class="sn-m-label">SPILL AREA</div><div class="sn-m-val">1.42 km²</div></div>
+                <div class="sn-metric-box"><div class="sn-m-label">SAR EVIDENCE</div><div class="sn-m-val">-26.4 dB</div></div>
+                <div class="sn-metric-box"><div class="sn-m-label">NEARSHORE CTX</div><div class="sn-m-val">1.2 km</div></div>
+                <div class="sn-metric-box"><div class="sn-m-label">ELIGIBILITY</div><div class="sn-m-val green">ELIGIBLE</div></div>
+              </div>
+              <button class="sn-action-btn primary" style="width: 100%; margin-top: 12px; padding: 10px;" onclick="window.runHindcast()">⚡ RUN RECONSTRUCTION →</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ================================================== -->
+      <!-- DOMAIN 3: RECONSTRUCT WORKSPACE (GEOGRAPHIC SATELLITE MAP) -->
+      <!-- ================================================== -->
+      <section class="sn-domain-workspace hidden" id="domain-reconstruct">
+        <div class="sn-domain-grid-with-timeline">
+          <div class="sn-map-hero-wrapper">
+            <div class="sn-sar-toolbar">
+              <span class="sn-tb-label">MODE:</span>
+              <button class="sn-tb-btn active" id="btn-mode-hindcast" onclick="window.switchPhysicsMode('HINDCAST')">HINDCAST (T0 → T-96h)</button>
+              <button class="sn-tb-btn" id="btn-mode-forecast" onclick="window.switchPhysicsMode('FORECAST')">FORECAST (T0 → T+48h)</button>
+              <span class="sn-tb-divider">|</span>
+              <span class="sn-tb-label">BASEMAP:</span>
+              <button class="sn-tb-btn active" id="btn-bm-reconstruct-hybrid" onclick="window.switchBasemap('reconstruct', 'HYBRID')">HYBRID</button>
+              <button class="sn-tb-btn" id="btn-bm-reconstruct-satellite" onclick="window.switchBasemap('reconstruct', 'SATELLITE')">SATELLITE</button>
+              <button class="sn-tb-btn" id="btn-bm-reconstruct-dark" onclick="window.switchBasemap('reconstruct', 'DARK')">DARK MAP</button>
+            </div>
+            <div id="map-reconstruct" class="sn-map-canvas"></div>
+          </div>
+
+          <aside class="sn-domain-inspector">
+            <div class="sn-explorer-card">
+              <div class="sn-explorer-header">PHYSICS TRANSPORT EXPLORER</div>
+              <div class="sn-tree-view">
+                <div class="sn-tree-node root">R001 — MAURITIUS</div>
+                <div class="sn-tree-node branch expanded">▼ PHYSICS TRANSPORT</div>
+                <div class="sn-tree-node branch expanded">├── ▼ Hindcast (T0 → T-96h)</div>
+                <div class="sn-tree-node leaf scn" onclick="window.setScenario('A')">│   ├── Scenario A (Currents)</div>
+                <div class="sn-tree-node leaf scn" onclick="window.setScenario('B')">│   ├── Scenario B (Curr + Wind)</div>
+                <div class="sn-tree-node leaf scn active" onclick="window.setScenario('C')">│   └── [x] Scenario C (Full Forcing)</div>
+                <div class="sn-tree-node branch expanded">├── ▼ Forward Forecast (T0 → T+48h)</div>
+                <div class="sn-tree-node leaf meta">│   └── Horizon: T+6h, T+12h, T+24h, T+48h</div>
+                <div class="sn-tree-node branch expanded">└── ▼ Metocean Forcing</div>
+                <div class="sn-tree-node leaf meta">    ├── ERA5 10m Wind: 10.2 m/s @ 135°</div>
+                <div class="sn-tree-node leaf meta">    ├── HYCOM Current: 0.24 m/s @ 280°</div>
+                <div class="sn-tree-node leaf meta">    └── CMEMS Stokes: 0.06 m/s</div>
+              </div>
+            </div>
+
+            <div class="sn-card" style="margin-top: 12px;" id="reconstruct-inspector-body">
+              <!-- Reconstruct Actions Injected by app.js -->
+            </div>
+          </aside>
+
+          <!-- BOTTOM CONTEXTUAL TIMELINE FOOTER (RECONSTRUCT ONLY) -->
+          <footer class="sn-playback-bar">
+            <div class="sn-playback-controls">
+              <button class="sn-play-btn" id="btn-play-pause" onclick="window.togglePlayback()">▶ PLAY</button>
+              <div class="sn-speed-box">
+                <span class="sn-lbl">SPEED:</span>
+                <button class="sn-speed-btn active" onclick="window.setSpeed(1)">1x</button>
+                <button class="sn-speed-btn" onclick="window.setSpeed(2)">2x</button>
+              </div>
+            </div>
+
+            <div class="sn-timeline-scrubber">
+              <div class="sn-timeline-labels" id="timeline-labels-container">
+                <span class="sn-t-lbl" onclick="window.setTimestep('T-96')">T-96h</span>
+                <span class="sn-t-lbl" onclick="window.setTimestep('T-72')">T-72h</span>
+                <span class="sn-t-lbl" onclick="window.setTimestep('T-48')">T-48h</span>
+                <span class="sn-t-lbl" onclick="window.setTimestep('T-24')">T-24h</span>
+                <span class="sn-t-lbl active" onclick="window.setTimestep('T0')">T0</span>
+              </div>
+              <div class="sn-timeline-track">
+                <div class="sn-timeline-progress" id="timeline-progress-bar" style="width: 100%;"></div>
+              </div>
+            </div>
+
+            <div class="sn-scenario-selector">
+              <span class="sn-lbl">SCENARIO:</span>
+              <select id="scenario-select" class="sn-sim-select" onchange="window.setScenario(this.value)">
+                <option value="A">Scenario A (Currents Only)</option>
+                <option value="B">Scenario B (Currents + Wind)</option>
+                <option value="C" selected>Scenario C (Currents + Wind + Stokes)</option>
+              </select>
+            </div>
+          </footer>
+        </div>
+      </section>
+
+      <!-- ================================================== -->
+      <!-- DOMAIN 4: VESSEL INTELLIGENCE WORKSPACE (GEOGRAPHIC AIS MAP) -->
+      <!-- ================================================== -->
+      <section class="sn-domain-workspace hidden" id="domain-attribute">
+        <div class="sn-domain-grid">
+          <div class="sn-map-hero-wrapper">
+            <div class="sn-sar-toolbar">
+              <span class="sn-tb-label">BASEMAP:</span>
+              <button class="sn-tb-btn active" id="btn-bm-attribute-hybrid" onclick="window.switchBasemap('attribute', 'HYBRID')">HYBRID</button>
+              <button class="sn-tb-btn" id="btn-bm-attribute-satellite" onclick="window.switchBasemap('attribute', 'SATELLITE')">SATELLITE</button>
+              <button class="sn-tb-btn" id="btn-bm-attribute-dark" onclick="window.switchBasemap('attribute', 'DARK')">DARK MAP</button>
+            </div>
+            <div id="map-attribute" class="sn-map-canvas"></div>
+          </div>
+
+          <aside class="sn-domain-inspector">
+            <div class="sn-explorer-card">
+              <div class="sn-explorer-header">VESSEL INTELLIGENCE EXPLORER</div>
+              <div class="sn-tree-view">
+                <div class="sn-tree-node root">R001 — MAURITIUS</div>
+                <div class="sn-tree-node branch expanded">▼ VESSEL INTELLIGENCE</div>
+                <div class="sn-tree-node leaf meta">├── AIS Engine: MarineCadastre (Synthetic Demo)</div>
+                <div class="sn-tree-node branch expanded">├── ▼ Vessel Tracks</div>
+                <div class="sn-tree-node leaf track active" onclick="window.selectVesselTrack('VESSEL_BETA')">│   ├── VESSEL_BETA (IMO 9876543)</div>
+                <div class="sn-tree-node leaf track" onclick="window.selectVesselTrack('VESSEL_ALPHA')">│   ├── VESSEL_ALPHA (IMO 9123456)</div>
+                <div class="sn-tree-node leaf track" onclick="window.selectVesselTrack('VESSEL_GAMMA')">│   └── VESSEL_GAMMA (IMO 9456789)</div>
+                <div class="sn-tree-node branch expanded">└── ▼ Ranked Investigative Leads</div>
+                <div class="sn-tree-node leaf meta">    ├── 1. VESSEL_BETA (Priority: 0.907)</div>
+                <div class="sn-tree-node leaf meta">    └── 2. VESSEL_ALPHA (Priority: 0.584)</div>
+              </div>
+            </div>
+
+            <div class="sn-card" style="margin-top: 12px;" id="attribute-inspector-body">
+              <!-- Vessel Inspector Injected by app.js -->
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ================================================== -->
+      <!-- DOMAIN 5: REVIEW BRIEFING MATRIX WORKSPACE -->
+      <!-- ================================================== -->
+      <section class="sn-domain-workspace hidden" id="domain-review">
+        <div class="sn-review-container" id="sn-review-body">
+          <!-- Review Matrix Injected by app.js -->
+        </div>
+      </section>
+
+    </div>
   </main>
 
   <!-- ================================================== -->
-  <!-- 3. BOTTOM TEMPORAL PLAYBACK BAR -->
+  <!-- 4. PERMANENT SCIENTIFIC STATUS BAR -->
   <!-- ================================================== -->
-  <footer class="sn-playback-bar">
-    <div class="sn-playback-controls">
-      <button class="sn-play-btn" id="btn-play-pause" onclick="window.togglePlayback()">▶ PLAY</button>
-      <div class="sn-speed-box">
-        <span class="sn-lbl">SPEED:</span>
-        <button class="sn-speed-btn active" onclick="window.setSpeed(1)">1x</button>
-        <button class="sn-speed-btn" onclick="window.setSpeed(2)">2x</button>
-        <button class="sn-speed-btn" onclick="window.setSpeed(5)">5x</button>
-      </div>
+  <footer class="sn-desktop-statusbar">
+    <div class="sn-sb-section">
+      <span class="sn-sb-item">LAT: <strong id="sb-lat">-20.4382°</strong></span>
+      <span class="sn-sb-item">LON: <strong id="sb-lon">57.7432°</strong></span>
+      <span class="sn-sb-item">SCALE: <strong>1:250,000</strong></span>
+      <span class="sn-sb-item">CRS: <strong>EPSG:4326 (WGS84)</strong></span>
     </div>
-
-    <!-- Scrubbable Timeline Track -->
-    <div class="sn-timeline-scrubber">
-      <div class="sn-timeline-labels" id="timeline-labels-container">
-        <span class="sn-t-lbl" onclick="window.setTimestep('T-96')">T-96h (06 Aug)</span>
-        <span class="sn-t-lbl" onclick="window.setTimestep('T-72')">T-72h (07 Aug)</span>
-        <span class="sn-t-lbl" onclick="window.setTimestep('T-48')">T-48h (08 Aug)</span>
-        <span class="sn-t-lbl" onclick="window.setTimestep('T-24')">T-24h (09 Aug)</span>
-        <span class="sn-t-lbl active" onclick="window.setTimestep('T0')">T0 (10 Aug 01:38 UTC)</span>
-      </div>
-      <div class="sn-timeline-track">
-        <div class="sn-timeline-progress" id="timeline-progress-bar" style="width: 100%;"></div>
-        <div class="sn-timeline-thumb" id="timeline-thumb" style="left: 100%;"></div>
-      </div>
-    </div>
-
-    <div class="sn-scenario-selector">
-      <span class="sn-lbl">PHYSICS SCENARIO:</span>
-      <select id="scenario-select" class="sn-sim-select" onchange="window.setScenario(this.value)">
-        <option value="A">Scenario A (Currents Only)</option>
-        <option value="B">Scenario B (Currents + 3% Wind)</option>
-        <option value="C" selected>Scenario C (Currents + Wind + Stokes)</option>
-      </select>
+    <div class="sn-sb-section">
+      <span class="sn-sb-item">ACTIVE LAYER: <strong id="sb-active-layer">Sigma0_VV_db</strong></span>
+      <span class="sn-sb-item">DATA TS: <strong>2020-08-10 01:38:07 UTC</strong></span>
     </div>
   </footer>
 
   <!-- ================================================== -->
-  <!-- 4. MODALS & DRAWERS -->
+  <!-- MODALS & DRAWERS -->
   <!-- ================================================== -->
+
+  <!-- SCIENTIFIC PROCESSING TASK PANE -->
+  <div class="sn-modal-overlay hidden" id="sn-job-progress-modal">
+    <div class="sn-modal-card" style="width: 520px; border-color: var(--accent-blue);">
+      <div class="sn-modal-header">
+        <h2 id="job-modal-title">⚡ SCIENTIFIC COMPUTATION TASK</h2>
+      </div>
+      <div class="sn-modal-body">
+        <div style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; margin-bottom: 6px;">
+            <span id="job-modal-step" style="color: var(--accent-blue); font-weight: 600;">INITIALIZING COMPUTATION...</span>
+            <span id="job-modal-pct" style="color: var(--text-primary); font-weight: 600;">0%</span>
+          </div>
+          <div class="sn-timeline-track" style="height: 6px; border-radius: 3px;">
+            <div class="sn-timeline-progress" id="job-modal-progress-bar" style="width: 0%; border-radius: 3px;"></div>
+          </div>
+        </div>
+        <div class="sn-card" style="background: var(--bg-base); max-height: 150px; overflow-y: auto; font-family: var(--font-mono); font-size: 10px; border-color: var(--bg-border);" id="job-modal-log-terminal">
+          <div style="color: var(--text-muted);">[SYSTEM] Initializing computation thread...</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- NEW INVESTIGATION MODAL -->
   <div class="sn-modal-overlay hidden" id="sn-new-inv-modal" onclick="window.closeNewInvestigationModal()">
@@ -242,56 +490,17 @@
       </div>
       <div class="sn-modal-body">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          
-          <!-- Mode A: Validated Benchmark -->
-          <div class="sn-card" style="border-color: var(--accent-cyan);">
+          <div class="sn-card">
             <div class="sn-card-title">VALIDATED BENCHMARK CASE</div>
-            <p class="sn-m-label" style="margin-bottom: 12px;">Load frozen Mauritius incident R001 Wakashio dataset with validated metocean forcing, Sentinel-1 SAR imagery, and OpenDrift particle configurations.</p>
-            <div class="sn-metric-grid" style="margin-bottom: 12px;">
-              <div class="sn-metric-box"><div class="sn-m-label">CASE ID</div><div class="sn-m-val">R001_WAKASHIO</div></div>
-              <div class="sn-metric-box"><div class="sn-m-label">STATUS</div><div class="sn-m-val" style="color: var(--status-good);">BENCHMARK READY</div></div>
-            </div>
-            <button class="sn-action-btn" style="width: 100%; padding: 10px;" onclick="window.loadBenchmarkCase()">LOAD VALIDATED R001 BENCHMARK</button>
+            <p class="sn-m-label" style="margin-bottom: 12px;">Load frozen Mauritius incident R001 Wakashio dataset with validated metocean forcing and Sentinel-1 SAR imagery.</p>
+            <button class="sn-action-btn primary" style="width: 100%; padding: 10px;" onclick="window.loadBenchmarkCase()">LOAD VALIDATED R001 BENCHMARK</button>
           </div>
-
-          <!-- Mode B: Custom SAR Observation -->
-          <div class="sn-card" style="border-color: var(--accent-blue);">
+          <div class="sn-card">
             <div class="sn-card-title">NEW SAR OBSERVATION UPLOAD</div>
-            <p class="sn-m-label" style="margin-bottom: 12px;">Upload a custom GeoTIFF Sentinel-1 / SAR observation file and optional MarineCadastre AIS CSV log file to create a new live case.</p>
-            <div style="margin-bottom: 10px;">
-              <label class="sn-m-label">SAR GeoTIFF File:</label>
-              <input type="file" id="input-sar-geotiff" accept=".tif,.tiff" style="width: 100%; font-size: 11px; margin-top: 4px; color: var(--text-secondary);">
-            </div>
-            <div style="margin-bottom: 14px;">
-              <label class="sn-m-label">AIS CSV File (Optional):</label>
-              <input type="file" id="input-ais-csv" accept=".csv" style="width: 100%; font-size: 11px; margin-top: 4px; color: var(--text-secondary);">
-            </div>
-            <button class="sn-action-btn" style="width: 100%; padding: 10px; background: var(--accent-indigo);" onclick="window.startCustomInvestigation()">INITIALIZE CUSTOM INVESTIGATION</button>
+            <p class="sn-m-label" style="margin-bottom: 12px;">Upload a custom GeoTIFF Sentinel-1 SAR raster file to initialize a new live investigation case.</p>
+            <input type="file" id="input-sar-geotiff" accept=".tif,.tiff" style="width: 100%; font-size: 11px; margin-bottom: 10px;">
+            <button class="sn-action-btn neutral" style="width: 100%; padding: 10px;" onclick="window.startCustomInvestigation()">INITIALIZE CUSTOM CASE</button>
           </div>
-
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- JOB PROGRESS OVERLAY MODAL -->
-  <div class="sn-modal-overlay hidden" id="sn-job-progress-modal">
-    <div class="sn-modal-card" style="width: 600px;">
-      <div class="sn-modal-header">
-        <h2 id="job-modal-title">⚡ RUNNING OPERATIONAL PIPELINE</h2>
-      </div>
-      <div class="sn-modal-body">
-        <div style="margin-bottom: 14px;">
-          <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; margin-bottom: 6px;">
-            <span id="job-modal-step" style="color: var(--accent-cyan); font-weight: 700;">INITIALIZING...</span>
-            <span id="job-modal-pct" style="color: var(--text-primary); font-weight: 700;">0%</span>
-          </div>
-          <div class="sn-timeline-track" style="height: 10px; border-radius: 5px;">
-            <div class="sn-timeline-progress" id="job-modal-progress-bar" style="width: 0%; border-radius: 5px;"></div>
-          </div>
-        </div>
-        <div class="sn-card" style="background: var(--bg-base); max-height: 180px; overflow-y: auto; font-family: var(--font-mono); font-size: 10px;" id="job-modal-log-terminal">
-          <div style="color: var(--text-muted);">[SYSTEM] Initializing job orchestration thread...</div>
         </div>
       </div>
     </div>
@@ -301,103 +510,37 @@
   <div class="sn-drawer-overlay hidden" id="sn-drawer-overlay" onclick="window.toggleProvenanceDrawer()"></div>
   <aside class="sn-provenance-drawer hidden" id="sn-provenance-drawer">
     <div class="sn-drawer-header">
-      <h3>📜 CRYPTOGRAPHIC PROVENANCE & LINEAGE AUDIT</h3>
+      <h3>📜 CRYPTOGRAPHIC PROVENANCE AUDIT</h3>
       <button class="sn-close-btn" onclick="window.toggleProvenanceDrawer()">×</button>
     </div>
-    <div class="sn-drawer-body" id="sn-provenance-body">
-      <!-- Provenance Content Injected by app.js -->
-    </div>
+    <div class="sn-drawer-body" id="sn-provenance-body"></div>
   </aside>
-
-  <!-- OPERATIONS HOME MODAL -->
-  <div class="sn-modal-overlay hidden" id="sn-ops-modal" onclick="window.closeOperationsHome()">
-    <div class="sn-modal-card" onclick="event.stopPropagation()">
-      <div class="sn-modal-header">
-        <h2>🌐 SAMUDRANETRA — MARITIME OPERATIONS COMMAND</h2>
-        <button class="sn-close-btn" onclick="window.closeOperationsHome()">×</button>
-      </div>
-      <div class="sn-modal-body">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-          <p class="sn-modal-desc" style="margin-bottom: 0;">Multi-case operational investigation registry and satellite observation queue.</p>
-          <button class="sn-action-btn" onclick="window.openNewInvestigationModal()">+ NEW INVESTIGATION</button>
-        </div>
-        <table class="sn-ops-table">
-          <thead>
-            <tr>
-              <th>CASE ID</th>
-              <th>INCIDENT NAME</th>
-              <th>LOCATION</th>
-              <th>OPERATIONAL MODE</th>
-              <th>SAR PRODUCT</th>
-              <th>DATA HEALTH</th>
-              <th>ACTION</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="active-row">
-              <td><strong>R001</strong></td>
-              <td>Mauritius Oil Spill Incident</td>
-              <td>Point d'Esny, Mauritius</td>
-              <td><span class="sn-badge sn-badge-amber">HISTORICAL CASE REVIEW</span></td>
-              <td>Sentinel-1B IW GRDH</td>
-              <td><span class="sn-badge sn-badge-green">READY</span></td>
-              <td><button class="sn-action-btn" onclick="window.closeOperationsHome()">LOAD WORKSTATION</button></td>
-            </tr>
-            <tr>
-              <td><strong>R002</strong></td>
-              <td>Singapore Strait Vessel Discharge</td>
-              <td>Singapore EEZ</td>
-              <td><span class="sn-badge sn-badge-blue">NEW OBSERVATION</span></td>
-              <td>Sentinel-1A IW GRDH</td>
-              <td><span class="sn-badge sn-badge-green">PROCESSING</span></td>
-              <td><button class="sn-action-btn disabled" disabled>QUEUED</button></td>
-            </tr>
-            <tr>
-              <td><strong>R003</strong></td>
-              <td>North Sea Platform Seepage</td>
-              <td>Ekofisk Field</td>
-              <td><span class="sn-badge sn-badge-purple">AIS PENDING</span></td>
-              <td>Sentinel-1B IW GRDH</td>
-              <td><span class="sn-badge sn-badge-amber">INSUFFICIENT AIS</span></td>
-              <td><button class="sn-action-btn disabled" disabled>QUEUED</button></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
   <!-- DATA HEALTH MODAL -->
   <div class="sn-modal-overlay hidden" id="sn-health-modal" onclick="window.toggleDataHealthModal()">
     <div class="sn-modal-card" onclick="event.stopPropagation()">
       <div class="sn-modal-header">
-        <h2>🟢 DATA SOURCE HEALTH & AVAILABILITY MONITOR</h2>
+        <h2>🟢 DATA SOURCE HEALTH & AVAILABILITY</h2>
         <button class="sn-close-btn" onclick="window.toggleDataHealthModal()">×</button>
       </div>
       <div class="sn-modal-body">
         <table class="sn-ops-table">
           <thead>
-            <tr>
-              <th>SOURCE</th>
-              <th>PROVIDER</th>
-              <th>FRESHNESS / STATUS</th>
-              <th>AVAILABILITY</th>
-            </tr>
+            <tr><th>SOURCE</th><th>PROVIDER</th><th>FRESHNESS</th><th>STATUS</th></tr>
           </thead>
           <tbody>
-            <tr><td>SAR SATELLITE</td><td>Copernicus Open Access Hub (Sentinel-1B)</td><td>LAST ACQUISITION: 10 AUG 2020 01:38 UTC</td><td><span class="sn-badge sn-badge-green">AVAILABLE</span></td></tr>
-            <tr><td>OCEAN CURRENTS</td><td>HYCOM 1/12° Surface Current Model</td><td>AUDITED ARCHIVE READY</td><td><span class="sn-badge sn-badge-green">AVAILABLE</span></td></tr>
-            <tr><td>ATMOSPHERIC WIND</td><td>ECMWF ERA5 10m Wind Fields</td><td>AUDITED ARCHIVE READY</td><td><span class="sn-badge sn-badge-green">AVAILABLE</span></td></tr>
-            <tr><td>WAVE DRIFT</td><td>CMEMS Global Wave Model (Stokes Drift)</td><td>AUDITED ARCHIVE READY</td><td><span class="sn-badge sn-badge-green">AVAILABLE</span></td></tr>
-            <tr><td>VESSEL AIS</td><td>AIS Data Engine (Synthetic Demonstration)</td><td>SYNTHETIC DEMO MODE</td><td><span class="sn-badge sn-badge-purple">DEMO DATA</span></td></tr>
+            <tr><td>SAR SATELLITE</td><td>Copernicus Sentinel-1B</td><td>10 AUG 2020 01:38 UTC</td><td><span class="sn-badge green">READY</span></td></tr>
+            <tr><td>OCEAN CURRENTS</td><td>HYCOM 1/12° Model</td><td>AUDITED ARCHIVE</td><td><span class="sn-badge green">READY</span></td></tr>
+            <tr><td>WIND FIELDS</td><td>ECMWF ERA5 10m</td><td>AUDITED ARCHIVE</td><td><span class="sn-badge green">READY</span></td></tr>
+            <tr><td>STOKES DRIFT</td><td>CMEMS Global Waves</td><td>AUDITED ARCHIVE</td><td><span class="sn-badge green">READY</span></td></tr>
+            <tr><td>VESSEL AIS</td><td>MarineCadastre AIS Engine</td><td>SYNTHETIC DEMO MODE</td><td><span class="sn-badge amber">DEMO AIS</span></td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- Application Logic Engine -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Application Engine -->
   <script src="app.js"></script>
 </body>
 </html>
