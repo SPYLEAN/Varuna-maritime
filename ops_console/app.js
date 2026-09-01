@@ -4,7 +4,7 @@
    ========================================================================== */
 
 (function () {
-  const API_BASE = "http://localhost:8000/api";
+  const API_BASE = (window.SAMUDRANETRA_API_BASE_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : window.location.origin)) + "/api";
 
   const state = {
     activeCaseId: "R001_WAKASHIO",

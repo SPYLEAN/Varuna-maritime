@@ -1,0 +1,16 @@
+{
+  "workflow_stages": [
+    "OPERATIONS HOME",
+    "+ NEW INVESTIGATION",
+    "01 OBSERVE",
+    "02 ANALYZE",
+    "03 RECONSTRUCT (HINDCAST)",
+    "03 RECONSTRUCT (FORECAST)",
+    "04 VESSEL INTELLIGENCE",
+    "05 REVIEW",
+    "PROVENANCE"
+  ],
+  "automated_investigation": "PASS",
+  "abstention_handling": "PASS",
+  "status": "PASS"
+}

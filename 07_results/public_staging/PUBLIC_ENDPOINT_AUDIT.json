@@ -1,0 +1,63 @@
+{
+  "endpoints": [
+    {
+      "path": "/health",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/ready",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/version",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/api/cases",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/api/cases/R001_WAKASHIO",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/api/cases/R001_WAKASHIO/sar",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/api/cases/R001_WAKASHIO/reconstruct",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/api/cases/R001_WAKASHIO/forecast",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/api/cases/R001_WAKASHIO/vessels",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/api/cases/R001_WAKASHIO/review",
+      "status": "PASS",
+      "code": 200
+    },
+    {
+      "path": "/api/cases/R001_WAKASHIO/provenance",
+      "status": "PASS",
+      "code": 200
+    }
+  ],
+  "total_endpoints_tested": 11,
+  "passed": 11,
+  "failed": 0,
+  "status": "PASS"
+}

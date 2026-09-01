@@ -1,0 +1,14 @@
+{
+  "package_dir": "design/stitch_handoff/",
+  "files": [
+    "STITCH_HANDOFF.md",
+    "DESIGN_CONTEXT.md",
+    "FUNCTIONAL_FLOW.md",
+    "SCIENTIFIC_TERMINOLOGY.md",
+    "DATA_VISUALIZATION_RULES.md",
+    "SCREEN_REQUIREMENTS.md",
+    "API_UI_MAPPING_TEMPLATE.md"
+  ],
+  "staging_url": "https://samudranetra.vercel.app",
+  "status": "PASS"
+}

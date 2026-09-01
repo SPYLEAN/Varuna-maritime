@@ -1,0 +1,41 @@
+{
+  "canonical_assets": {
+    "vv_sar_raster": {
+      "status": "PASS",
+      "file": "R001_WAKASHIO_20200810_S1B_VV_SIGMA0_DB.tif"
+    },
+    "vh_sar_raster": {
+      "status": "PASS",
+      "file": "R001_WAKASHIO_20200810_S1B_VH_SIGMA0_DB.tif"
+    },
+    "c4053_ml_score": {
+      "status": "PASS",
+      "canonical_value": 0.5818
+    },
+    "era5_extended": {
+      "status": "PASS",
+      "file": "era5_wind_20200810_extended.nc",
+      "t48_coverage": "PASS"
+    },
+    "hycom_extended": {
+      "status": "PASS",
+      "file": "hycom_currents_20200810_extended.nc4",
+      "t48_coverage": "PASS"
+    },
+    "cmems_extended": {
+      "status": "PASS",
+      "file": "cmems_waves_202008_extended.nc",
+      "t48_coverage": "PASS"
+    },
+    "opendrift_particles": {
+      "status": "PASS",
+      "hindcast_particles": 500,
+      "forecast_particles": 250
+    },
+    "ais_synthetic_demo": {
+      "status": "PASS",
+      "labeled_correctly": true
+    }
+  },
+  "status": "PASS"
+}
