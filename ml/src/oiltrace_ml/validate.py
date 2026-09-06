@@ -1,8 +1,16 @@
 from __future__ import annotations
 import argparse
+import json
 from pathlib import Path
-from typing import TypedDict
-from .data import list_images, pair_images_and_masks, read_grayscale
+from typing import Any, TypedDict
+from .data import (
+    Sentinel1Dataset,
+    list_images,
+    load_sentinel1_manifest,
+    pair_images_and_masks,
+    read_grayscale,
+)
+from .preprocessing import SARPreprocessingConfig, config_for_channels
 from .visualize import create_contact_sheet
 
 
@@ -92,13 +100,79 @@ def validate_dataset(image_root: str | Path, mask_root: str | Path) -> Validatio
     return report
 
 
+def validate_sentinel1_dataset(
+    manifest_path: str | Path,
+    *,
+    preprocessing: SARPreprocessingConfig | None = None,
+    channel_order: tuple[str, ...] = ("VV", "VH"),
+) -> dict[str, Any]:
+    """Exhaustively read a V1 manifest and collect integrity/category results."""
+
+    samples = load_sentinel1_manifest(manifest_path)
+    config = preprocessing or config_for_channels(channel_order)
+    categories = {"oil": 0, "lookalike": 0, "no_oil": 0}
+    empty_masks = {"oil": 0, "lookalike": 0, "no_oil": 0}
+    errors: list[dict[str, str]] = []
+    valid_samples = 0
+
+    for sample in samples:
+        categories[sample.scene_category] += 1
+        try:
+            dataset = Sentinel1Dataset(
+                [sample],
+                image_size=1,
+                channel_order=channel_order,
+                preprocessing=config,
+            )
+            _, _, metadata = dataset[0]
+            if metadata["mask_is_empty"]:
+                empty_masks[sample.scene_category] += 1
+            valid_samples += 1
+        except (FileNotFoundError, ValueError) as err:
+            errors.append({"scene_id": sample.scene_id, "error": str(err)})
+
+    return {
+        "manifest": str(Path(manifest_path)),
+        "sample_count": len(samples),
+        "valid_samples": valid_samples,
+        "invalid_samples": len(errors),
+        "channel_order": list(channel_order),
+        "preprocessing": config.to_dict(),
+        "category_counts": categories,
+        "empty_masks_by_category": empty_masks,
+        "errors": errors,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description="Validate SAR oil-spill dataset integrity and stats.")
-    ap.add_argument("--images", required=True, help="Directory containing SAR images")
-    ap.add_argument("--masks", required=True, help="Directory containing ground-truth masks")
+    ap.add_argument("--images", help="Legacy directory containing SAR images")
+    ap.add_argument("--masks", help="Legacy directory containing ground-truth masks")
+    ap.add_argument("--manifest", help="V1 Sentinel-1 CSV/JSON/JSONL manifest")
+    ap.add_argument("--channel-order", nargs="+", default=["VV", "VH"])
+    ap.add_argument("--preprocessing-method", choices=["fixed_db", "robust_percentile"], default="fixed_db")
+    ap.add_argument("--db-min", nargs="+", type=float, default=None)
+    ap.add_argument("--db-max", nargs="+", type=float, default=None)
     ap.add_argument("--visualize-out", help="Optional path to save contact sheet PNG")
     ap.add_argument("--num-samples", type=int, default=6, help="Number of samples for contact sheet")
     args = ap.parse_args()
+
+    if args.manifest:
+        config = config_for_channels(
+            args.channel_order,
+            method=args.preprocessing_method,
+            db_min=args.db_min,
+            db_max=args.db_max,
+        )
+        report = validate_sentinel1_dataset(
+            args.manifest,
+            preprocessing=config,
+            channel_order=tuple(args.channel_order),
+        )
+        print(json.dumps(report, indent=2))
+        return
+    if not args.images or not args.masks:
+        ap.error("Provide --manifest for V1 or both --images and --masks for legacy V0 validation")
 
     report = validate_dataset(args.images, args.masks)
 

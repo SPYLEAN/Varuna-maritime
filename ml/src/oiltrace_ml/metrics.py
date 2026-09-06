@@ -10,13 +10,23 @@ def dice_loss(logits, targets, eps=1e-6):
     return 1 - dice.mean()
 
 
-def binary_metrics(logits, targets, threshold=0.5, eps=1e-6):
+def binary_confusion_counts(logits, targets, threshold=0.5):
     preds = (torch.sigmoid(logits) >= threshold).float()
-    tp = (preds * targets).sum().item()
-    fp = (preds * (1 - targets)).sum().item()
-    fn = ((1 - preds) * targets).sum().item()
+    return {
+        "tp": int((preds * targets).sum().item()),
+        "fp": int((preds * (1 - targets)).sum().item()),
+        "fn": int(((1 - preds) * targets).sum().item()),
+    }
+
+
+def segmentation_metrics_from_counts(tp, fp, fn, eps=1e-6):
     dice = (2*tp + eps) / (2*tp + fp + fn + eps)
     iou = (tp + eps) / (tp + fp + fn + eps)
     precision = (tp + eps) / (tp + fp + eps)
     recall = (tp + eps) / (tp + fn + eps)
     return {"dice": dice, "iou": iou, "precision": precision, "recall": recall}
+
+
+def binary_metrics(logits, targets, threshold=0.5, eps=1e-6):
+    counts = binary_confusion_counts(logits, targets, threshold=threshold)
+    return segmentation_metrics_from_counts(**counts, eps=eps)
