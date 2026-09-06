@@ -200,6 +200,8 @@ def _assert_aligned(reference: dict[str, Any], candidate: dict[str, Any], label:
         raise ValueError(f"{label} CRS {candidate['crs']!r} does not match VV CRS {reference['crs']!r}")
     if not np.allclose(candidate["transform"], reference["transform"], rtol=0.0, atol=1e-9):
         raise ValueError(f"{label} affine transform does not match VV")
+    if not np.allclose(candidate["bounds"], reference["bounds"], rtol=0.0, atol=1e-6):
+        raise ValueError(f"{label} bounds {candidate['bounds']} do not match VV bounds {reference['bounds']}")
 
 
 def read_sentinel1_stack(
@@ -319,3 +321,79 @@ class Sentinel1Dataset(Dataset):
             torch.from_numpy(mask_resized).unsqueeze(0).float(),
             metadata,
         )
+
+
+def audit_split_leakage(
+    train_samples: Sequence[Sentinel1Sample],
+    val_samples: Sequence[Sentinel1Sample],
+    test_samples: Sequence[Sentinel1Sample] = (),
+) -> dict[str, Any]:
+    """Audit dataset splits for scene_id or event leakage to prevent tile leakage."""
+    splits = {"train": list(train_samples), "val": list(val_samples), "test": list(test_samples)}
+    scene_ids = {name: {s.scene_id for s in samples} for name, samples in splits.items()}
+
+    train_val_scene = scene_ids["train"].intersection(scene_ids["val"])
+    train_test_scene = scene_ids["train"].intersection(scene_ids["test"])
+    val_test_scene = scene_ids["val"].intersection(scene_ids["test"])
+
+    def _event_id(sample: Sentinel1Sample) -> str:
+        if sample.acquisition_timestamp:
+            return sample.acquisition_timestamp.split("T")[0]
+        parts = sample.scene_id.split("_")
+        return parts[0] if len(parts) < 2 else f"{parts[0]}_{parts[1]}"
+
+    event_ids = {name: {_event_id(s) for s in samples} for name, samples in splits.items()}
+
+    train_val_event = event_ids["train"].intersection(event_ids["val"]) if event_ids["val"] else set()
+    train_test_event = event_ids["train"].intersection(event_ids["test"]) if event_ids["test"] else set()
+    val_test_event = event_ids["val"].intersection(event_ids["test"]) if (event_ids["val"] and event_ids["test"]) else set()
+
+    has_leakage = bool(
+        train_val_scene or train_test_scene or val_test_scene or train_val_event or train_test_event or val_test_event
+    )
+
+    result = {
+        "passed": not has_leakage,
+        "scene_id_leakage": {
+            "train_val": sorted(train_val_scene),
+            "train_test": sorted(train_test_scene),
+            "val_test": sorted(val_test_scene),
+        },
+        "event_leakage": {
+            "train_val": sorted(train_val_event),
+            "train_test": sorted(train_test_event),
+            "val_test": sorted(val_test_event),
+        },
+    }
+
+    if has_leakage:
+        raise ValueError(f"Split leakage audit FAILED: {result}")
+
+    return result
+
+
+def extract_aligned_patches(
+    image: np.ndarray,
+    mask: np.ndarray,
+    patch_size: int = 256,
+    stride: int = 128,
+    min_oil_pixels: int = 0,
+) -> list[tuple[np.ndarray, np.ndarray, tuple[int, int, int, int]]]:
+    """Extract identical window patches from multi-channel image and binary mask."""
+    channels, height, width = image.shape
+    if mask.shape != (height, width):
+        raise ValueError(f"Mask shape {mask.shape} does not match image spatial dimensions {(height, width)}")
+    if patch_size > height or patch_size > width:
+        raise ValueError(f"Patch size {patch_size} is larger than image dimensions {(height, width)}")
+
+    patches = []
+    for y in range(0, height - patch_size + 1, stride):
+        for x in range(0, width - patch_size + 1, stride):
+            img_patch = image[:, y : y + patch_size, x : x + patch_size]
+            mask_patch = mask[y : y + patch_size, x : x + patch_size]
+            oil_px = int((mask_patch > 0.5).sum())
+            if oil_px < min_oil_pixels:
+                continue
+            patches.append((img_patch, mask_patch, (y, y + patch_size, x, x + patch_size)))
+
+    return patches
