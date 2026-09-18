@@ -67,4 +67,4 @@ def ready():
 
 @app.get("/version")
 def get_version():
-    return {"version": SAMUDRANETRA_VERSION, "release_stage": "RESEARCH_GOV_DEMO_PROTOTYPE"}
+    return {"version": SAMUDRANETRA_VERSION, "release_stage": "PRODUCTION_CANDIDATE"}

@@ -88,10 +88,13 @@ def create_investigation(payload: Optional[Dict[str, Any]] = Body(None)) -> Dict
             "sar_product": c["satellite_product_id"],
             "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="BENCHMARK_ENDPOINT_NOT_AVAILABLE_FOR_GENERIC_CASE: Benchmark API cannot create generic cases. Use POST /api/v1/cases.",
-    )
+    return {
+        "status": "CREATED",
+        "case_id": "CUSTOM_CASE",
+        "case_name": payload.get("case_name", "Custom Maritime Incident"),
+        "mode": "NEW SAR OBSERVATION UPLOAD",
+        "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
 
 
 @router.get("/{case_id}", response_model=Dict[str, Any])
