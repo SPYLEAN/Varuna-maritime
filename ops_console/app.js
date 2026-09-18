@@ -110,30 +110,37 @@
       const res = await fetch(`${PRODUCT_API_BASE}/cases`);
       if (res.ok) {
         const backendCases = await res.json();
-        const mappedGeneric = backendCases.map(bc => ({
-          case_id: bc.case_id,
-          case_name: bc.name,
-          location: bc.region || (bc.latitude && bc.longitude ? `${bc.latitude.toFixed(2)}°, ${bc.longitude.toFixed(2)}°` : "Custom AOI"),
-          region: bc.region,
-          latitude: bc.latitude,
-          longitude: bc.longitude,
-          aoi_geojson: bc.aoi_geojson,
-          mode: bc.incident_type || "Operational Oil Spill",
-          stage: bc.analysis_status?.oil_detection === "completed" ? "Analysis Complete" : "Observation Required",
-          status: bc.analysis_status?.oil_detection === "completed" ? "ACTIVE" : "NEW",
-          last_updated: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent",
-          is_benchmark: false,
-          observation_status: (bc.data_manifest?.evidence && bc.data_manifest.evidence.some(e => e.evidence_type === "sar_image")) ? "ATTACHED" : "NO OBSERVATION ATTACHED",
-          detection_status: bc.analysis_status?.oil_detection || "not_started",
-          selected_candidate: null,
-          hindcast_status: bc.analysis_status?.hindcast || "not_started",
-          forecast_status: "not_started",
-          ais_status: bc.analysis_status?.ais_correlation || "not_started",
-          review_status: "INCOMPLETE",
-          activity: [
-            { time: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent", text: `Case ${bc.case_id} registered in database` }
-          ]
-        }));
+        const mappedGeneric = backendCases.map(bc => {
+          const satObs = bc.data_manifest?.satellite_observations || [];
+          const hasSar = satObs.length > 0 || (bc.data_manifest?.evidence && bc.data_manifest.evidence.some(e => e.evidence_type === "sar_image"));
+          return {
+            case_id: bc.case_id,
+            case_name: bc.name,
+            location: bc.region || (bc.latitude && bc.longitude ? `${bc.latitude.toFixed(2)}°, ${bc.longitude.toFixed(2)}°` : "Custom AOI"),
+            region: bc.region,
+            latitude: bc.latitude,
+            longitude: bc.longitude,
+            aoi_geojson: bc.aoi_geojson,
+            observation_timestamp: bc.observation_timestamp,
+            mode: bc.incident_type || "Operational Oil Spill",
+            stage: bc.analysis_status?.oil_detection === "completed" ? "Analysis Complete" : (hasSar ? "Observation Attached" : "Observation Required"),
+            status: bc.analysis_status?.oil_detection === "completed" ? "ACTIVE" : "NEW",
+            last_updated: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent",
+            is_benchmark: false,
+            observation_status: hasSar ? "ATTACHED" : "NO OBSERVATION ATTACHED",
+            satellite_observations: satObs,
+            raw_case: bc,
+            detection_status: bc.analysis_status?.oil_detection || "not_started",
+            selected_candidate: null,
+            hindcast_status: bc.analysis_status?.hindcast || "not_started",
+            forecast_status: "not_started",
+            ais_status: bc.analysis_status?.ais_correlation || "not_started",
+            review_status: "INCOMPLETE",
+            activity: [
+              { time: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent", text: `Case ${bc.case_id} registered in database` }
+            ]
+          };
+        });
         state.cases = [R001_BENCHMARK_RECORD, ...mappedGeneric.filter(c => c.case_id !== "R001_WAKASHIO")];
       }
     } catch (err) {
@@ -448,23 +455,146 @@
 
       if (taskEl) taskEl.innerText = "Observation Review";
       if (descEl) descEl.innerText = "Sentinel-1 SAR scene validated and calibrated. Next step: Run oil-like slick detection.";
+      const covBadge = document.getElementById("observe-coverage-badge");
+      if (covBadge) covBadge.classList.add("hidden");
     } else {
-      // ZERO-LEAKAGE EMPTY STATE FOR GENERIC CASES
+      // GENERIC INVESTIGATION CASE (ZERO-LEAKAGE + REAL SATELLITE DISCOVERY)
       const activeCase = state.cases.find(c => c.case_id === state.investigationId);
-      if (taskEl) taskEl.innerText = "NO OBSERVATION ATTACHED";
-      if (descEl) descEl.innerText = "No Sentinel-1 SAR observation has been uploaded to this investigation case. Attach a SAR GeoTIFF or product archive to initiate analysis.";
+      const propsContainer = document.getElementById("guided-observe-properties-container");
+      const actionContainer = document.getElementById("guided-observe-action-container");
+      const covBadge = document.getElementById("observe-coverage-badge");
+      const covText = document.getElementById("observe-coverage-text");
 
-      if (activeCase && activeCase.aoi_geojson) {
-        try {
-          const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
-            style: { color: "#38BDF8", weight: 2, dashArray: "4,4", fillColor: "#2563eb", fillOpacity: 0.15 }
-          }).addTo(state.maps.observe);
-          state.maps.observe.fitBounds(aoiLayer.getBounds(), { padding: [20, 20], animate: false });
-        } catch (e) {
+      const attachedObs = (activeCase?.satellite_observations && activeCase.satellite_observations.length > 0)
+        ? activeCase.satellite_observations[0]
+        : null;
+
+      if (!attachedObs) {
+        // STATE 1: NO OBSERVATION ATTACHED
+        if (taskEl) taskEl.innerText = "NO OBSERVATION ATTACHED";
+        if (descEl) descEl.innerText = "No Sentinel-1 SAR observation has been attached to this investigation case. Search genuine Copernicus acquisitions or upload SAR GeoTIFF.";
+
+        if (propsContainer) {
+          propsContainer.innerHTML = `
+            <div class="p-3 bg-surface-container rounded border border-outline-variant space-y-2.5">
+              <div class="flex items-center space-x-1.5 text-primary text-[10px] font-bold uppercase">
+                <span class="material-symbols-outlined text-[14px]">satellite_alt</span>
+                <span>Observation Attachment</span>
+              </div>
+              <p class="text-[11px] text-on-surface-variant leading-relaxed">Discover real Sentinel-1 GRD acquisitions from Copernicus Data Space Ecosystem intersecting this case's AOI.</p>
+              <button class="w-full h-8 bg-primary hover:bg-primary-container text-on-primary font-data-mono-sm uppercase tracking-wider font-bold rounded flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow-sm text-xs" onclick="window.openSatelliteSearchModal()">
+                <span class="material-symbols-outlined text-[16px]">search</span>
+                <span>SEARCH SENTINEL-1</span>
+              </button>
+              <button class="w-full h-7 bg-surface-variant hover:bg-surface-container-highest text-on-surface font-data-mono-sm text-[10px] uppercase rounded border border-outline-variant flex items-center justify-center space-x-1 transition-colors cursor-pointer" onclick="window.triggerSarUploadGeneric()">
+                <span class="material-symbols-outlined text-[14px]">upload_file</span>
+                <span>UPLOAD SAR</span>
+              </button>
+            </div>
+          `;
+        }
+
+        if (actionContainer) {
+          actionContainer.innerHTML = `
+            <button disabled class="w-full h-8 bg-surface-variant text-outline font-data-mono-sm uppercase tracking-wider font-bold rounded flex items-center justify-center space-x-2 opacity-60 cursor-not-allowed text-xs">
+              <span class="material-symbols-outlined text-[16px]">hourglass_empty</span>
+              <span>AWAITING OBSERVATION</span>
+            </button>
+          `;
+        }
+
+        if (covBadge) covBadge.classList.add("hidden");
+
+        if (activeCase && activeCase.aoi_geojson) {
+          try {
+            const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
+              style: { color: "#38BDF8", weight: 2, dashArray: "4,4", fillColor: "#2563eb", fillOpacity: 0.15 }
+            }).addTo(state.maps.observe);
+            state.maps.observe.fitBounds(aoiLayer.getBounds(), { padding: [30, 30], animate: false });
+          } catch (e) {
+            state.maps.observe.setView([0, 0], 2);
+          }
+        } else {
           state.maps.observe.setView([0, 0], 2);
         }
       } else {
-        state.maps.observe.setView([0, 0], 2);
+        // STATE 2: OBSERVATION ATTACHED
+        if (taskEl) taskEl.innerText = "OBSERVATION ATTACHED";
+        if (descEl) descEl.innerText = `Genuine ${attachedObs.platform || "Sentinel-1"} observation attached from Copernicus Data Space Ecosystem. Ready for scientific pipeline preparation.`;
+
+        const acqTime = attachedObs.datetime ? attachedObs.datetime.replace("T", " ").replace("Z", "") + " UTC" : "N/A";
+        const pols = (attachedObs.polarizations && attachedObs.polarizations.length) ? attachedObs.polarizations.join("/") : "VV/VH";
+        const covVal = attachedObs.coverage_percent != null ? `${attachedObs.coverage_percent}%` : "100.0%";
+
+        if (propsContainer) {
+          propsContainer.innerHTML = `
+            <div class="p-3 bg-surface-container rounded border border-outline-variant space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] text-primary uppercase font-bold">Properties: ${attachedObs.platform || "Sentinel-1"}</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-success-green/15 text-success-green font-bold">ATTACHED</span>
+              </div>
+              <div class="space-y-1.5 text-[11px] font-data-mono">
+                <div class="flex justify-between"><span class="text-outline">Platform</span><span class="font-bold text-on-surface">${attachedObs.platform || "Sentinel-1"}</span></div>
+                <div class="flex justify-between"><span class="text-outline">Acquired</span><span class="text-on-surface">${acqTime}</span></div>
+                <div class="flex justify-between"><span class="text-outline">Mode</span><span>${attachedObs.instrument_mode || "IW"} ${attachedObs.product_type || "GRD"}</span></div>
+                <div class="flex justify-between"><span class="text-outline">Polarization</span><span class="text-primary font-bold">${pols}</span></div>
+                <div class="flex justify-between"><span class="text-outline">Coverage</span><span class="text-success-green font-bold">${covVal}</span></div>
+                <div class="flex justify-between"><span class="text-outline">Source</span><span class="truncate max-w-[140px] text-right" title="Copernicus Data Space Ecosystem">Copernicus CDSE</span></div>
+                <div class="flex justify-between"><span class="text-outline">Processing</span><span class="text-warning-amber font-bold">NOT STARTED</span></div>
+                <div class="pt-1 border-t border-outline-variant/50">
+                  <div class="text-[10px] text-outline truncate" title="${attachedObs.stac_item_id}">ID: ${attachedObs.stac_item_id}</div>
+                </div>
+              </div>
+              <div class="pt-1 flex space-x-2">
+                <button class="flex-1 py-1 bg-surface-variant hover:bg-surface-container-highest text-on-surface rounded text-[10px] font-bold uppercase transition-colors" onclick="window.viewSatelliteMetadata('${attachedObs.stac_item_id}')">View Metadata</button>
+                <button class="py-1 px-2 bg-surface-variant hover:bg-surface-container-highest text-primary rounded text-[10px] font-bold uppercase transition-colors" onclick="window.openSatelliteSearchModal()" title="Search / Replace Observation">Change</button>
+              </div>
+            </div>
+          `;
+        }
+
+        if (actionContainer) {
+          actionContainer.innerHTML = `
+            <button class="w-full h-8 bg-primary hover:bg-primary-container text-on-primary font-data-mono-sm uppercase tracking-wider font-bold rounded flex items-center justify-center space-x-2 transition-colors cursor-pointer text-xs" onclick="window.prepareObservationPrompt()">
+              <span>PREPARE OBSERVATION</span>
+              <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </button>
+          `;
+        }
+
+        // Plot both AOI and STAC footprint on map
+        let boundsLayers = [];
+        if (activeCase && activeCase.aoi_geojson) {
+          try {
+            const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
+              style: { color: "#38BDF8", weight: 2, dashArray: "4,4", fillColor: "#2563eb", fillOpacity: 0.15 }
+            }).addTo(state.maps.observe);
+            boundsLayers.push(aoiLayer);
+          } catch (e) {
+            console.warn("Could not draw AOI:", e);
+          }
+        }
+
+        if (attachedObs.geometry) {
+          try {
+            const fpLayer = L.geoJSON(attachedObs.geometry, {
+              style: { color: "#f59e0b", weight: 2, fillColor: "#f59e0b", fillOpacity: 0.20 }
+            }).addTo(state.maps.observe);
+            boundsLayers.push(fpLayer);
+          } catch (e) {
+            console.warn("Could not draw STAC footprint:", e);
+          }
+        }
+
+        if (covBadge && covText) {
+          covText.innerText = `AOI COVERAGE: ${covVal} • ${attachedObs.platform || "Sentinel-1"} (${attachedObs.instrument_mode || "IW"})`;
+          covBadge.classList.remove("hidden");
+        }
+
+        if (boundsLayers.length > 0) {
+          const group = L.featureGroup(boundsLayers);
+          state.maps.observe.fitBounds(group.getBounds(), { padding: [30, 30], animate: false });
+        }
       }
     }
   }
@@ -959,6 +1089,323 @@
       }
     }, 300);
   }
+
+  // Satellite Discovery State
+  state.satelliteSearchResults = [];
+  state.activeFootprintLayer = null;
+
+  window.openSatelliteSearchModal = function () {
+    const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+    const modal = document.getElementById("sn-satellite-search-modal");
+    if (!modal) return;
+
+    const aoiInfo = document.getElementById("sat-search-aoi-info");
+    const startInput = document.getElementById("sat-search-start");
+    const endInput = document.getElementById("sat-search-end");
+    const statusBar = document.getElementById("sat-search-status-bar");
+    if (statusBar) statusBar.classList.add("hidden");
+
+    if (!activeCase || !activeCase.aoi_geojson) {
+      if (aoiInfo) aoiInfo.innerHTML = `<span class="text-error-red font-bold">CASE HAS NO PERSISTED AOI</span>`;
+      alert("This case has no persisted AOI geometry. Please specify an AOI to search Copernicus satellite catalogues.");
+      return;
+    }
+
+    const geom = activeCase.aoi_geojson;
+    const geomType = geom.type || "Polygon";
+    const coordsCount = geom.coordinates?.[0]?.length || 0;
+    if (aoiInfo) aoiInfo.innerText = `${geomType} (${coordsCount} boundary vertices)`;
+
+    // Date range defaulting
+    let baseTime = activeCase.observation_timestamp || activeCase.raw_case?.created_at;
+    let baseDate = baseTime ? new Date(baseTime) : new Date();
+    if (isNaN(baseDate.getTime())) baseDate = new Date();
+
+    // Default T-3 days to T+1 day
+    const startDate = new Date(baseDate.getTime() - 3 * 86400000);
+    const endDate = new Date(baseDate.getTime() + 1 * 86400000);
+
+    if (startInput) startInput.value = startDate.toISOString().split(".")[0] + "Z";
+    if (endInput) endInput.value = endDate.toISOString().split(".")[0] + "Z";
+
+    modal.classList.remove("hidden");
+  };
+
+  window.closeSatelliteSearchModal = function () {
+    const modal = document.getElementById("sn-satellite-search-modal");
+    if (modal) modal.classList.add("hidden");
+  };
+
+  window.executeSatelliteSearch = async function () {
+    const submitBtn = document.getElementById("sat-search-submit-btn");
+    const statusBar = document.getElementById("sat-search-status-bar");
+    const resultsContainer = document.getElementById("sat-search-results-container");
+    const startVal = document.getElementById("sat-search-start")?.value?.trim();
+    const endVal = document.getElementById("sat-search-end")?.value?.trim();
+    const modeVal = document.getElementById("sat-search-mode")?.value || "IW";
+
+    if (!startVal || !endVal) {
+      if (statusBar) {
+        statusBar.className = "px-4 py-2 text-xs font-data-mono flex items-center space-x-2 border-b border-error-red/40 bg-error-red/10 text-error-red";
+        statusBar.innerText = "INVALID_TIME_RANGE: Both Start and End UTC Datetimes are required.";
+        statusBar.classList.remove("hidden");
+      }
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">progress_activity</span><span>SEARCHING CDSE...</span>`;
+    }
+
+    if (statusBar) {
+      statusBar.className = "px-4 py-2 text-xs font-data-mono flex items-center space-x-2 border-b border-primary/40 bg-primary/10 text-primary";
+      statusBar.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">sync</span><span>Querying Copernicus Data Space Ecosystem STAC for sentinel-1-grd (${modeVal})...</span>`;
+      statusBar.classList.remove("hidden");
+    }
+
+    try {
+      const resp = await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/satellite/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start_datetime: startVal,
+          end_datetime: endVal,
+          limit: 20,
+          instrument_mode: modeVal,
+        }),
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        const errorDetail = data.detail || `Provider error (Status ${resp.status})`;
+        if (statusBar) {
+          statusBar.className = "px-4 py-2 text-xs font-data-mono flex items-center space-x-2 border-b border-error-red/40 bg-error-red/10 text-error-red font-bold";
+          statusBar.innerText = errorDetail.includes("TEMPORARILY UNAVAILABLE")
+            ? "COPERNICUS CATALOGUE TEMPORARILY UNAVAILABLE"
+            : errorDetail;
+          statusBar.classList.remove("hidden");
+        }
+        if (resultsContainer) {
+          resultsContainer.innerHTML = `
+            <div class="p-6 text-center text-error-red font-data-mono text-xs">
+              <span class="material-symbols-outlined text-[32px] mb-2 text-error-red/80">cloud_off</span>
+              <div class="font-bold uppercase tracking-wider">${errorDetail}</div>
+              <div class="text-[11px] text-outline mt-1">Zero synthetic results fabricated. Verify Copernicus network access or adjust time parameters.</div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      state.satelliteSearchResults = data.results || [];
+
+      if (statusBar) {
+        statusBar.className = "px-4 py-2 text-xs font-data-mono flex items-center space-x-2 border-b border-success-green/40 bg-success-green/10 text-success-green font-semibold";
+        statusBar.innerHTML = `<span class="material-symbols-outlined text-[16px]">check_circle</span><span>Found ${data.count} genuine Sentinel-1 acquisition(s) intersecting case AOI.</span>`;
+        statusBar.classList.remove("hidden");
+      }
+
+      if (state.satelliteSearchResults.length === 0) {
+        if (resultsContainer) {
+          resultsContainer.innerHTML = `
+            <div class="p-8 text-center text-outline font-data-mono text-xs">
+              <span class="material-symbols-outlined text-[32px] mb-2 text-outline/60">search_off</span>
+              <div class="font-bold text-on-surface uppercase">NO ACQUISITIONS FOUND</div>
+              <div class="text-[11px] mt-1">No Sentinel-1 GRD acquisitions intersected the selected AOI and time window. Expand date window or modify mode.</div>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      // Render real acquisition cards
+      if (resultsContainer) {
+        resultsContainer.innerHTML = state.satelliteSearchResults.map(item => {
+          const acqTime = item.datetime ? item.datetime.replace("T", " ").replace("Z", "") + " UTC" : "N/A";
+          const pols = item.polarizations?.length ? item.polarizations.join("/") : "N/A";
+          const orbit = item.orbit_state ? item.orbit_state.toUpperCase() : "UNKNOWN";
+          const relOrb = item.relative_orbit != null ? `Rel: ${item.relative_orbit}` : "";
+          const covPct = item.coverage_percent != null ? `${item.coverage_percent}%` : "N/A";
+
+          let thumbHtml = "";
+          if (item.thumbnail_url) {
+            thumbHtml = `<img src="${item.thumbnail_url}" alt="SAR Thumbnail" class="w-16 h-16 object-cover rounded border border-outline-variant bg-[#0c0e16]" loading="lazy">`;
+          }
+
+          return `
+            <div class="p-3 bg-surface-container rounded border border-outline-variant hover:border-primary/50 transition-colors flex items-center justify-between font-data-mono text-xs">
+              <div class="flex items-center space-x-3.5">
+                ${thumbHtml}
+                <div class="space-y-1">
+                  <div class="flex items-center space-x-2">
+                    <span class="font-bold text-on-surface text-sm">${item.platform || "Sentinel-1"}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-surface-variant text-[10px] text-primary font-bold">${item.instrument_mode || "IW"} ${item.product_type || "GRD"}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-surface-container-highest text-[10px] text-on-surface-variant">${pols}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-primary/15 text-primary text-[10px] font-bold">${covPct} AOI Coverage</span>
+                  </div>
+                  <div class="text-[11px] text-on-surface-variant flex items-center space-x-3">
+                    <span>Acquisition: <strong class="text-on-surface">${acqTime}</strong></span>
+                    <span>Orbit: <strong class="text-on-surface">${orbit}</strong> ${relOrb}</span>
+                  </div>
+                  <div class="text-[10px] text-outline truncate max-w-[500px]" title="${item.stac_item_id}">ID: ${item.stac_item_id}</div>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2 pl-3">
+                <button class="px-2.5 py-1.5 bg-surface-variant hover:bg-surface-container-highest text-on-surface rounded text-[10px] font-bold uppercase transition-colors cursor-pointer" onclick="window.previewSatelliteFootprint('${item.stac_item_id}')">
+                  View Footprint
+                </button>
+                <button class="px-2 py-1.5 bg-surface-variant hover:bg-surface-container-highest text-outline hover:text-on-surface rounded text-[10px] uppercase transition-colors cursor-pointer" onclick="window.viewSatelliteMetadata('${item.stac_item_id}')" title="Inspect STAC properties">
+                  Metadata
+                </button>
+                <button class="px-3 py-1.5 bg-primary hover:bg-primary-container text-on-primary font-bold uppercase rounded text-[10px] tracking-wide transition-colors cursor-pointer shadow-sm" onclick="window.attachSatelliteObservation('${item.stac_item_id}')">
+                  Attach
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+    } catch (err) {
+      console.error("Satellite search request failed:", err);
+      if (statusBar) {
+        statusBar.className = "px-4 py-2 text-xs font-data-mono flex items-center space-x-2 border-b border-error-red/40 bg-error-red/10 text-error-red font-bold";
+        statusBar.innerText = `COPERNICUS CATALOGUE TEMPORARILY UNAVAILABLE: ${err.message || err}`;
+        statusBar.classList.remove("hidden");
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">search</span><span>SEARCH COPERNICUS</span>`;
+      }
+    }
+  };
+
+  window.previewSatelliteFootprint = function (stacItemId) {
+    const item = state.satelliteSearchResults.find(i => i.stac_item_id === stacItemId);
+    if (!item || !item.geometry || !state.maps.observe) return;
+
+    if (state.activeFootprintLayer) {
+      state.maps.observe.removeLayer(state.activeFootprintLayer);
+      state.activeFootprintLayer = null;
+    }
+
+    try {
+      state.activeFootprintLayer = L.geoJSON(item.geometry, {
+        style: { color: "#f59e0b", weight: 2, fillColor: "#f59e0b", fillOpacity: 0.22 }
+      }).addTo(state.maps.observe);
+
+      const covBadge = document.getElementById("observe-coverage-badge");
+      const covText = document.getElementById("observe-coverage-text");
+      if (covBadge && covText) {
+        const covVal = item.coverage_percent != null ? `${item.coverage_percent}%` : "N/A";
+        covText.innerText = `AOI COVERAGE: ${covVal} • ${item.platform || "Sentinel-1"} (${item.instrument_mode || "IW"})`;
+        covBadge.classList.remove("hidden");
+      }
+
+      // Collect AOI and footprint bounds to fit map
+      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+      const layers = [state.activeFootprintLayer];
+      if (activeCase?.aoi_geojson) {
+        const aoi = L.geoJSON(activeCase.aoi_geojson);
+        layers.push(aoi);
+      }
+      const group = L.featureGroup(layers);
+      state.maps.observe.fitBounds(group.getBounds(), { padding: [40, 40], animate: true });
+
+      // Close modal to reveal map view
+      window.closeSatelliteSearchModal();
+    } catch (e) {
+      console.warn("Failed to preview footprint:", e);
+    }
+  };
+
+  window.viewSatelliteMetadata = function (stacItemId) {
+    let item = state.satelliteSearchResults.find(i => i.stac_item_id === stacItemId);
+    if (!item) {
+      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+      item = activeCase?.satellite_observations?.find(o => o.stac_item_id === stacItemId);
+    }
+    if (!item) return;
+
+    const modal = document.getElementById("sn-satellite-metadata-modal");
+    const idEl = document.getElementById("sat-meta-modal-item-id");
+    const assetsEl = document.getElementById("sat-meta-modal-assets");
+    const rawEl = document.getElementById("sat-meta-modal-raw");
+
+    if (idEl) idEl.innerText = item.stac_item_id;
+
+    if (assetsEl) {
+      const assetKeys = Object.keys(item.assets || {});
+      if (assetKeys.length === 0) {
+        assetsEl.innerHTML = `<span class="text-outline">No asset metadata links provided.</span>`;
+      } else {
+        assetsEl.innerHTML = assetKeys.map(k => {
+          const a = item.assets[k];
+          const href = a.href || a;
+          const role = a.roles ? `[${a.roles.join(", ")}]` : "";
+          return `<div class="flex justify-between items-center py-0.5"><span class="text-primary font-semibold">${k} ${role}:</span><a href="${href}" target="_blank" rel="noopener noreferrer" class="text-on-surface hover:text-primary truncate max-w-[420px] underline ml-2">${href}</a></div>`;
+        }).join("");
+      }
+    }
+
+    if (rawEl) {
+      rawEl.innerText = JSON.stringify(item.raw_properties || item, null, 2);
+    }
+
+    if (modal) modal.classList.remove("hidden");
+  };
+
+  window.closeSatelliteMetadataModal = function () {
+    const modal = document.getElementById("sn-satellite-metadata-modal");
+    if (modal) modal.classList.add("hidden");
+  };
+
+  window.attachSatelliteObservation = async function (stacItemId) {
+    if (!stacItemId || !state.investigationId) return;
+
+    try {
+      const resp = await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/satellite/attach`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stac_item_id: stacItemId }),
+      });
+
+      const attachedData = await resp.json();
+
+      if (!resp.ok) {
+        alert(`Failed to attach observation: ${attachedData.detail || resp.statusText}`);
+        return;
+      }
+
+      // Success: reload cases and refresh Observe domain
+      window.closeSatelliteSearchModal();
+      await loadCasesFromBackend();
+      initObserveMap();
+
+      alert(`Observation ${stacItemId} successfully verified and attached to Case ${state.investigationId} with full CDSE provenance.`);
+    } catch (err) {
+      console.error("Error attaching observation:", err);
+      alert(`Error attaching observation: ${err.message || err}`);
+    }
+  };
+
+  window.prepareObservationPrompt = function () {
+    alert(
+      "PHASE 3 PIPELINE NOTICE:\n\n" +
+      "Sentinel-1 observation metadata has been verified and attached to this case with genuine CDSE STAC provenance.\n\n" +
+      "ESA SNAP GPT automated preprocessing (radiometric calibration, Sigma0 dB, speckle filtering, Doppler terrain correction) will execute in Phase 3."
+    );
+  };
+
+  window.triggerSarUploadGeneric = function () {
+    alert(
+      "SAR GeoTIFF Upload:\n\n" +
+      "To upload an offline SAR raster file, please use the Case Evidence Ingestion drawer (/api/v1/cases/{case_id}/evidence) or the SAR Discovery workflow."
+    );
+  };
 
   window.runSlickDetection = async function () {
     if (!isBenchmarkCase(state.investigationId)) {

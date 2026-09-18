@@ -458,6 +458,10 @@
             <button class="px-2 py-1 rounded hover:bg-surface-variant text-on-surface-variant font-data-mono-sm text-data-mono-sm" id="btn-band-observe-compare" onclick="window.switchSarBand('COMPARE')">VV/VH Ratio</button>
           </div>
           <div id="map-observe" class="w-full h-full z-10"></div>
+          <div id="observe-coverage-badge" class="absolute top-16 left-6 z-20 bg-surface-container-high/95 backdrop-blur-md border border-primary/40 px-3 py-1.5 rounded shadow-lg font-data-mono text-xs hidden flex items-center space-x-2">
+            <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+            <span id="observe-coverage-text" class="text-primary font-bold">AOI COVERAGE: --%</span>
+          </div>
           <div class="absolute bottom-10 left-6 flex flex-col space-y-1 z-20">
             <button class="w-8 h-8 bg-surface-container-high border border-outline-variant rounded-t flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors shadow-sm" onclick="window.zoomInMap('observe')"><span class="material-symbols-outlined text-[18px]">add</span></button>
             <button class="w-8 h-8 bg-surface-container-high border-x border-b border-outline-variant rounded-b flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors shadow-sm" onclick="window.zoomOutMap('observe')"><span class="material-symbols-outlined text-[18px]">remove</span></button>
@@ -470,24 +474,26 @@
           <div class="p-3 border-b border-outline-variant flex justify-between items-center bg-surface-container">
             <span class="font-headline-sm text-headline-sm text-on-surface">Guided Task Inspector</span>
           </div>
-          <div class="flex-1 overflow-y-auto p-3 space-y-3 font-data-mono text-xs">
+          <div class="flex-1 overflow-y-auto p-3 space-y-3 font-data-mono text-xs" id="guided-observe-scroll-area">
             <div class="p-2.5 bg-surface-container rounded border border-outline-variant">
               <div class="text-[10px] text-outline uppercase">CURRENT TASK</div>
               <div class="text-primary font-bold text-sm mt-0.5" id="guided-observe-task">Observation Review</div>
               <div class="text-[11px] text-on-surface-variant mt-1" id="guided-observe-desc">Sentinel-1 SAR scene validated and calibrated. Next step: Run oil-like slick detection.</div>
             </div>
             
-            <div class="p-2.5 bg-surface-container-highest rounded">
-              <div class="text-[10px] text-primary uppercase font-bold">Properties: Sentinel-1B</div>
-              <div class="mt-2 space-y-1 text-[11px]">
-                <div class="flex justify-between"><span class="text-outline">Product ID</span><span>S1B_IW_GRDH...672D</span></div>
-                <div class="flex justify-between"><span class="text-outline">Acquisition</span><span>2020-08-10 01:38 UTC</span></div>
-                <div class="flex justify-between"><span class="text-outline">Active Band</span><span class="text-primary font-bold">Sigma0_VV_db</span></div>
-                <div class="flex justify-between"><span class="text-outline">Status</span><span class="text-success-green font-bold">VALIDATED</span></div>
+            <div id="guided-observe-properties-container">
+              <div class="p-2.5 bg-surface-container-highest rounded">
+                <div class="text-[10px] text-primary uppercase font-bold">Properties: Sentinel-1B</div>
+                <div class="mt-2 space-y-1 text-[11px]">
+                  <div class="flex justify-between"><span class="text-outline">Product ID</span><span>S1B_IW_GRDH...672D</span></div>
+                  <div class="flex justify-between"><span class="text-outline">Acquisition</span><span>2020-08-10 01:38 UTC</span></div>
+                  <div class="flex justify-between"><span class="text-outline">Active Band</span><span class="text-primary font-bold">Sigma0_VV_db</span></div>
+                  <div class="flex justify-between"><span class="text-outline">Status</span><span class="text-success-green font-bold">VALIDATED</span></div>
+                </div>
               </div>
             </div>
           </div>
-          <div class="p-4 border-t border-outline-variant bg-surface-container">
+          <div class="p-4 border-t border-outline-variant bg-surface-container" id="guided-observe-action-container">
             <button class="w-full h-8 bg-primary hover:bg-primary-container text-on-primary font-data-mono-sm uppercase tracking-wider font-bold rounded flex items-center justify-center space-x-2 transition-colors cursor-pointer" onclick="window.runSlickDetection()">
               <span>RUN SLICK DETECTION</span>
               <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -730,6 +736,109 @@
         <div class="bg-surface-container-lowest max-h-[150px] overflow-y-auto font-data-mono text-[10px] p-2 rounded border border-outline-variant" id="job-modal-log-terminal">
           <div class="text-outline">[SYSTEM] Initializing computation thread...</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SATELLITE SEARCH MODAL (CDSE STAC) -->
+  <div class="fixed inset-0 bg-[#0c0e16]/85 backdrop-blur-sm z-[1000] flex items-center justify-center hidden" id="sn-satellite-search-modal">
+    <div class="bg-surface-container-low border border-outline-variant rounded-lg w-[920px] max-w-[95vw] max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-4 bg-surface-container border-b border-outline-variant flex justify-between items-center">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="material-symbols-outlined text-primary text-[20px]">satellite_alt</span>
+            <h2 class="text-sm font-bold text-on-surface tracking-wide uppercase">SATELLITE CATALOGUE DISCOVERY</h2>
+          </div>
+          <p class="text-[11px] text-on-surface-variant mt-0.5 font-data-mono">Copernicus Data Space Ecosystem (CDSE) STAC • Collection: <span class="text-primary font-semibold">sentinel-1-grd</span></p>
+        </div>
+        <button class="w-7 h-7 rounded hover:bg-surface-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors cursor-pointer" onclick="window.closeSatelliteSearchModal()">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+
+      <!-- Search Controls Bar -->
+      <div class="p-4 bg-surface-container-lowest border-b border-outline-variant space-y-3">
+        <!-- AOI Context Info -->
+        <div class="flex items-center justify-between p-2 rounded bg-surface-container border border-outline-variant/60 font-data-mono text-[11px]">
+          <div class="flex items-center space-x-2 text-on-surface-variant">
+            <span class="material-symbols-outlined text-[16px] text-primary">polyline</span>
+            <span>PERSISTED CASE AOI:</span>
+            <span id="sat-search-aoi-info" class="text-on-surface font-semibold">Loading AOI geometry...</span>
+          </div>
+          <span class="px-2 py-0.5 rounded bg-primary/15 text-primary text-[10px] font-bold uppercase tracking-wider">Catalogue Discovery Only</span>
+        </div>
+
+        <!-- Inputs Grid -->
+        <div class="grid grid-cols-4 gap-3 font-data-mono text-xs">
+          <div>
+            <label class="block text-[10px] text-outline uppercase font-semibold mb-1">Start DateTime (UTC)</label>
+            <input type="text" id="sat-search-start" class="w-full bg-surface-container-high border border-outline-variant rounded px-2.5 py-1.5 text-on-surface text-xs focus:outline-none focus:border-primary" placeholder="YYYY-MM-DDTHH:MM:SSZ">
+          </div>
+          <div>
+            <label class="block text-[10px] text-outline uppercase font-semibold mb-1">End DateTime (UTC)</label>
+            <input type="text" id="sat-search-end" class="w-full bg-surface-container-high border border-outline-variant rounded px-2.5 py-1.5 text-on-surface text-xs focus:outline-none focus:border-primary" placeholder="YYYY-MM-DDTHH:MM:SSZ">
+          </div>
+          <div>
+            <label class="block text-[10px] text-outline uppercase font-semibold mb-1">Instrument Mode</label>
+            <select id="sat-search-mode" class="w-full bg-surface-container-high border border-outline-variant rounded px-2 py-1.5 text-on-surface text-xs focus:outline-none focus:border-primary">
+              <option value="IW" selected>IW (Interferometric Wide)</option>
+              <option value="EW">EW (Extra-Wide Swath)</option>
+              <option value="SM">SM (Stripmap)</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button id="sat-search-submit-btn" class="w-full h-[32px] bg-primary hover:bg-primary-container text-on-primary font-bold uppercase rounded flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow-sm text-xs" onclick="window.executeSatelliteSearch()">
+              <span class="material-symbols-outlined text-[16px]">search</span>
+              <span>SEARCH COPERNICUS</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Status / Error Bar -->
+      <div id="sat-search-status-bar" class="hidden px-4 py-2 text-xs font-data-mono flex items-center space-x-2 border-b border-outline-variant"></div>
+
+      <!-- Results Container -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-2.5 max-h-[50vh] bg-surface-container-lowest" id="sat-search-results-container">
+        <div class="p-8 text-center text-outline font-data-mono text-xs">
+          <span class="material-symbols-outlined text-[36px] mb-2 text-outline/60">satellite</span>
+          <div>Click <strong class="text-on-surface font-semibold">SEARCH COPERNICUS</strong> to query real Sentinel-1 acquisitions intersecting this case's AOI.</div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3 bg-surface-container border-t border-outline-variant flex justify-between items-center text-[11px] font-data-mono text-outline">
+        <div>Truthful Catalogue Query • No Synthetic Fallback Data</div>
+        <button class="px-3 py-1 bg-surface-variant hover:bg-surface-container-highest text-on-surface rounded transition-colors cursor-pointer uppercase text-xs" onclick="window.closeSatelliteSearchModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SATELLITE METADATA DETAIL MODAL -->
+  <div class="fixed inset-0 bg-[#0c0e16]/90 backdrop-blur-sm z-[1050] flex items-center justify-center hidden" id="sn-satellite-metadata-modal">
+    <div class="bg-surface-container-low border border-outline-variant rounded-lg w-[740px] max-w-[92vw] max-h-[85vh] shadow-2xl flex flex-col overflow-hidden font-data-mono text-xs">
+      <div class="p-4 bg-surface-container border-b border-outline-variant flex justify-between items-center">
+        <div>
+          <h2 class="text-sm font-bold text-on-surface tracking-wide uppercase">SATELLITE OBSERVATION METADATA</h2>
+          <p id="sat-meta-modal-item-id" class="text-[11px] text-primary mt-0.5 truncate max-w-[500px]">STAC Item Details</p>
+        </div>
+        <button class="w-7 h-7 rounded hover:bg-surface-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors cursor-pointer" onclick="window.closeSatelliteMetadataModal()">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-surface-container-lowest">
+        <div>
+          <div class="text-[10px] text-outline uppercase font-bold mb-1">PROVENANCE & ASSETS</div>
+          <div id="sat-meta-modal-assets" class="space-y-1 bg-surface-container p-2.5 rounded border border-outline-variant text-[11px]"></div>
+        </div>
+        <div>
+          <div class="text-[10px] text-outline uppercase font-bold mb-1">RAW STAC PROPERTIES</div>
+          <pre id="sat-meta-modal-raw" class="p-3 bg-surface-container rounded border border-outline-variant text-[11px] overflow-x-auto text-on-surface max-h-[300px]"></pre>
+        </div>
+      </div>
+      <div class="p-3 bg-surface-container border-t border-outline-variant flex justify-end">
+        <button class="px-3 py-1 bg-surface-variant text-on-surface rounded uppercase text-xs cursor-pointer" onclick="window.closeSatelliteMetadataModal()">Close</button>
       </div>
     </div>
   </div>
