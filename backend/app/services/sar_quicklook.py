@@ -7,12 +7,14 @@ Source Commit SHA: 6c18c292153b3c617dd1e015dbe00f86272f9437
 PIPELINE DESIGNATION:
 VARUNA QUICKLOOK SAR ANALYSIS
 (Radiometric calibration, Lee speckle filtering, decibel scaling, and land suppression).
+Terrain correction is NOT applied in this quicklook pipeline.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
@@ -34,6 +36,12 @@ IMAGENET_STD: Tuple[float, float, float] = (0.229, 0.224, 0.225)
 DEFAULT_DB_WINDOW: Tuple[float, float] = (-25.0, 0.0)
 DEFAULT_DB_EPS: float = 1e-10
 
+# Valid radiometric calibration modes
+RADIOMETRIC_MODE_SIGMA0_LUT = "SIGMA0_LUT_CALIBRATED"
+RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK = "MEASUREMENT_INTENSITY_FALLBACK"
+RADIOMETRIC_MODE_COG_PRECALIBRATED = "COG_PRECALIBRATED"
+RADIOMETRIC_MODE_UNKNOWN = "UNKNOWN"
+
 
 class CalibratedScene(NamedTuple):
     """Calibrated sigma0 with georeferencing needed for masking and inference."""
@@ -42,6 +50,7 @@ class CalibratedScene(NamedTuple):
     crs: CRS
     polarisation: str = "VV"
     vh_available: bool = False
+    radiometric_mode: str = RADIOMETRIC_MODE_UNKNOWN
 
 
 class PreprocessedSceneResult(BaseModel):
@@ -53,12 +62,20 @@ class PreprocessedSceneResult(BaseModel):
     observation_id: str
     source_input_path: str
     input_sha256: str
+    product_id: Optional[str] = None
     raster_dimensions: Tuple[int, int]
     crs: str
-    vv_processed: bool
-    vh_available: bool
-    processed_db_geotiff_path: str
-    output_sha256: str
+    polarization: str = "VV"
+    radiometric_mode: str = RADIOMETRIC_MODE_UNKNOWN
+    filter_size: int = 7
+    vv_processed: bool = True
+    vh_available: bool = False
+    vh_processed: bool = False
+    processed_db_geotiff_path: str = ""
+    vh_processed_db_geotiff_path: Optional[str] = None
+    output_sha256: str = ""
+    vh_output_sha256: Optional[str] = None
+    processing_duration_seconds: float = 0.0
     started_at: str
     completed_at: str
     status: str
@@ -143,58 +160,33 @@ def model_ready_chw(
     return np.transpose(normed, (2, 0, 1)).astype(np.float32)
 
 
-def read_sar_raster(
-    raster_path: Union[str, Path],
-    polarisation: str = "VV",
-    *,
-    bbox: Optional[Tuple[float, float, float, float]] = None,
-) -> CalibratedScene:
-    """Read a SAR raster file (GeoTIFF, COG, or SAFE directory) as intensity.
+def _acquisition_mode(safe: Path, xs: Any) -> str:
+    """Determine the S1 acquisition mode group (e.g. IW, EW)."""
+    for token in safe.name.split("_"):
+        if token in ("IW", "EW", "WV"):
+            return token
+    try:
+        root = xs.open_sentinel1_dataset(str(safe))
+        subgroups = str(root.attrs.get("subgroups", "")).replace("[", " ").replace("]", " ")
+        for candidate in ("IW", "EW", "WV"):
+            if candidate in subgroups:
+                return candidate
+    except Exception:
+        pass
+    return "IW"
 
-    Supports single-file GeoTIFF / COG and full Sentinel-1 SAFE directory measurements.
-    """
-    path = Path(raster_path)
-    pol = polarisation.lower()
 
-    if path.is_dir() and path.suffix == ".SAFE":
-        return read_grd_measurement(path, polarisation=polarisation, bbox=bbox)
-
-    # Check for direct GeoTIFF / COG
-    if not path.is_file():
-        # Check if measurement directory exists under path
-        meas_dir = path / "measurement"
-        if meas_dir.is_dir():
-            return read_grd_measurement(path, polarisation=polarisation, bbox=bbox)
-        raise FileNotFoundError(f"SAR raster not found at: {path}")
-
-    with rasterio.open(path) as ds:
-        # Check for GCPs or standard affine
-        if ds.gcps[0]:
-            from rasterio.transform import from_gcps
-            transform = from_gcps(ds.gcps[0])
-            crs = ds.gcps[1] or CRS.from_epsg(4326)
-        else:
-            transform = ds.transform
-            crs = ds.crs or CRS.from_epsg(4326)
-
-        data = ds.read(1).astype(np.float64)
-        # Intensity = DN^2 if raw amplitude, or direct linear power
-        intensity = np.where(data > 0, data**2 if np.max(data) > 100.0 else data, 0.0)
-
-    # Check if VH partner file is present
-    vh_available = False
-    parent = path.parent
-    vh_files = list(parent.glob(f"*{path.stem}*vh*")) + list(parent.glob("*vh*.tif*"))
-    if vh_files:
-        vh_available = True
-
-    return CalibratedScene(
-        sigma0=intensity,
-        transform=transform,
-        crs=crs,
-        polarisation=polarisation.upper(),
-        vh_available=vh_available,
-    )
+def _georef_from_dataarray(da: Any) -> Tuple[Affine, CRS]:
+    """Recover affine transform and CRS from an xarray DataArray."""
+    try:
+        import rioxarray  # noqa: F401
+        transform = da.rio.transform(recalc=True)
+        crs = da.rio.crs
+        if crs is not None:
+            return transform, crs
+    except Exception:
+        pass
+    return Affine.identity(), CRS.from_epsg(4326)
 
 
 def read_grd_measurement(
@@ -203,7 +195,11 @@ def read_grd_measurement(
     *,
     bbox: Optional[Tuple[float, float, float, float]] = None,
 ) -> CalibratedScene:
-    """Read a GRD measurement GeoTIFF from a SAFE directory with GCP georeferencing."""
+    """Read a GRD measurement GeoTIFF from a SAFE directory with GCP georeferencing.
+
+    Returns an uncalibrated relative intensity array with explicit
+    radiometric_mode='MEASUREMENT_INTENSITY_FALLBACK'.
+    """
     from affine import Affine
     from rasterio.transform import from_gcps
     from rasterio.windows import Window
@@ -214,7 +210,8 @@ def read_grd_measurement(
     if not tifs:
         tifs = sorted(safe.glob(f"measurement/*-{pol}-*.tif"))
     if not tifs:
-        # Fallback to any measurement tiff
+        tifs = sorted(safe.glob(f"*-{pol}-*.tiff")) or sorted(safe.glob(f"*-{pol}-*.tif"))
+    if not tifs:
         tifs = sorted(safe.glob("measurement/*.tiff")) or sorted(safe.glob("measurement/*.tif"))
     if not tifs:
         raise FileNotFoundError(f"No {pol} measurement GeoTIFF under {safe}")
@@ -264,6 +261,7 @@ def read_grd_measurement(
         crs=crs,
         polarisation=polarisation.upper(),
         vh_available=vh_available,
+        radiometric_mode=RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK,
     )
 
 
@@ -272,39 +270,106 @@ def calibrate_safe(
     *,
     polarisation: str = "vv",
 ) -> CalibratedScene:
-    """Attempt radiometric calibration via xarray-sentinel; fallback to read_grd_measurement."""
+    """Read a Sentinel-1 GRD SAFE and calibrate to Sigma0 using product calibration LUT.
+
+    Attempts true radiometric calibration using xarray-sentinel and the sigmaNought LUT.
+    Only if xarray-sentinel or the XML calibration LUT is unavailable does it fall back to
+    read_grd_measurement, explicitly returning MEASUREMENT_INTENSITY_FALLBACK.
+    """
     safe = Path(safe_path)
     if not safe.exists():
         raise FileNotFoundError(f"SAFE product not found: {safe}")
 
+    pol = polarisation.upper()
+
     try:
         import xarray_sentinel as xs
-        pol = polarisation.upper()
-        mode = "IW"
-        for token in safe.name.split("_"):
-            if token in ("IW", "EW", "WV"):
-                mode = token
-                break
+        import rioxarray  # noqa: F401
 
+        mode = _acquisition_mode(safe, xs)
         group = f"{mode}/{pol}"
+
         measurement = xs.open_sentinel1_dataset(str(safe), group=group)
         calibration = xs.open_sentinel1_dataset(str(safe), group=f"{group}/calibration")
+
         dn = measurement["measurement"]
         sigma0_da = xs.calibrate_intensity(dn, calibration["sigmaNought"])
-        import rioxarray
-        transform = sigma0_da.rio.transform(recalc=True)
-        crs = sigma0_da.rio.crs or CRS.from_epsg(4326)
+
+        transform, crs = _georef_from_dataarray(sigma0_da)
         sigma0 = np.asarray(sigma0_da.values, dtype=np.float64)
+
+        # Check VH availability
+        vh_available = False
+        try:
+            xs.open_sentinel1_dataset(str(safe), group=f"{mode}/VH")
+            vh_available = True
+        except Exception:
+            meas_dir = safe / "measurement"
+            if meas_dir.exists():
+                vh_tifs = list(meas_dir.glob("*-vh-*"))
+                vh_available = len(vh_tifs) > 0
+
         return CalibratedScene(
             sigma0=sigma0,
             transform=transform,
             crs=crs,
-            polarisation=polarisation.upper(),
-            vh_available=True,
+            polarisation=pol,
+            vh_available=vh_available,
+            radiometric_mode=RADIOMETRIC_MODE_SIGMA0_LUT,
         )
     except Exception as exc:
-        logger.debug(f"xarray-sentinel calibration unavailable ({exc}); using GCP measurement fallback.")
+        logger.warning(
+            f"Full sigma0 calibration with xarray-sentinel unavailable ({exc}); "
+            f"using fallback measurement intensity."
+        )
         return read_grd_measurement(safe_path, polarisation=polarisation)
+
+
+def read_sar_raster(
+    raster_path: Union[str, Path],
+    polarisation: str = "VV",
+    *,
+    bbox: Optional[Tuple[float, float, float, float]] = None,
+) -> CalibratedScene:
+    """Read a SAR raster file (GeoTIFF, COG, or SAFE directory) as intensity."""
+    path = Path(raster_path)
+    pol = polarisation.lower()
+
+    if (path.is_dir() and path.suffix == ".SAFE") or (path.is_dir() and (path / "measurement").is_dir()):
+        return calibrate_safe(path, polarisation=polarisation)
+
+    if not path.is_file():
+        meas_dir = path / "measurement"
+        if meas_dir.is_dir():
+            return calibrate_safe(path, polarisation=polarisation)
+        raise FileNotFoundError(f"SAR raster not found at: {path}")
+
+    with rasterio.open(path) as ds:
+        if ds.gcps[0]:
+            from rasterio.transform import from_gcps
+            transform = from_gcps(ds.gcps[0])
+            crs = ds.gcps[1] or CRS.from_epsg(4326)
+        else:
+            transform = ds.transform
+            crs = ds.crs or CRS.from_epsg(4326)
+
+        data = ds.read(1).astype(np.float64)
+        intensity = np.where(data > 0, data**2 if np.max(data) > 100.0 else data, 0.0)
+
+    vh_available = False
+    parent = path.parent
+    vh_files = list(parent.glob(f"*{path.stem}*vh*")) + list(parent.glob("*vh*.tif*"))
+    if vh_files:
+        vh_available = True
+
+    return CalibratedScene(
+        sigma0=intensity,
+        transform=transform,
+        crs=crs,
+        polarisation=polarisation.upper(),
+        vh_available=vh_available,
+        radiometric_mode=RADIOMETRIC_MODE_COG_PRECALIBRATED,
+    )
 
 
 def land_mask_from_coastlines(
@@ -353,12 +418,14 @@ def execute_quicklook_preprocessing(
     filter_size: int = 7,
     db_window: Tuple[float, float] = DEFAULT_DB_WINDOW,
     coastlines_path: Optional[Union[str, Path]] = None,
+    process_vh: bool = True,
 ) -> Tuple[PreprocessedSceneResult, CalibratedScene, np.ndarray, np.ndarray]:
     """Execute complete VARUNA QUICKLOOK SAR preprocessing pipeline:
 
-    RAW SCENE -> CALIBRATE / READ -> LEE FILTER -> DECIBEL (dB) -> MODEL TENSOR & EXPORT GEOTIFF
+    RAW SCENE -> CALIBRATE_SAFE (for SAFE products) / READ -> LEE FILTER -> DECIBEL (dB) -> GEOTIFF EXPORT
     Target directory: data/cases/<case_id>/observations/<observation_id>/processed/
     """
+    start_clock = time.time()
     started_at = datetime.now(timezone.utc).isoformat()
     p_in = Path(source_input_path)
     input_sha256 = ""
@@ -373,8 +440,18 @@ def execute_quicklook_preprocessing(
     proc_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        # 1. Calibrate / read intensity
-        scene = read_sar_raster(source_input_path, polarisation=polarisation)
+        # 1. Calibration: for SAFE products, explicitly route to calibrate_safe()
+        is_safe_product = (
+            (p_in.is_dir() and p_in.suffix == ".SAFE")
+            or (p_in.is_dir() and (p_in / "measurement").is_dir())
+            or (p_in.is_file() and p_in.name.endswith(".SAFE.zip"))
+        )
+
+        if is_safe_product:
+            scene = calibrate_safe(source_input_path, polarisation=polarisation)
+        else:
+            scene = read_sar_raster(source_input_path, polarisation=polarisation)
+
         h_dim, w_dim = scene.sigma0.shape
 
         # 2. Apply Lee filter
@@ -384,16 +461,14 @@ def execute_quicklook_preprocessing(
         sigma0_db = to_db(filtered_sigma0)
 
         # 4. Land mask if provided
-        land_mask = None
         if coastlines_path:
             land_mask = land_mask_from_coastlines(
                 (h_dim, w_dim), scene.transform, scene.crs, coastlines_path
             )
-            # Mask out land in dB
             sigma0_db = np.where(land_mask, db_window[0], sigma0_db)
 
-        # 5. Export preprocessed dB GeoTIFF
-        out_tif = proc_dir / f"{observation_id}_sigma0_db.tif"
+        # 5. Export preprocessed VV dB GeoTIFF
+        out_tif = proc_dir / f"{observation_id}_{scene.polarisation.lower()}_sigma0_db.tif"
         with rasterio.open(
             out_tif,
             "w",
@@ -409,31 +484,86 @@ def execute_quicklook_preprocessing(
             dst.write(sigma0_db.astype(np.float32), 1)
             dst.update_tags(
                 PIPELINE="VARUNA QUICKLOOK SAR ANALYSIS",
+                TERRAIN_CORRECTION="NONE",
                 POLARISATION=scene.polarisation,
+                RADIOMETRIC_MODE=scene.radiometric_mode,
                 FILTER="LEE_SPECKLE_MMSE",
                 FILTER_SIZE=str(filter_size),
                 DB_WINDOW=f"{db_window[0]},{db_window[1]}",
             )
 
-        # Compute output hash
+        # Output hash
         h_out = hashlib.sha256()
         with out_tif.open("rb") as f:
             while chunk := f.read(65536):
                 h_out.update(chunk)
         out_sha256 = h_out.hexdigest()
 
+        # 6. Optional VH processing if requested and available
+        vh_tif_path = None
+        vh_sha256 = None
+        vh_processed = False
+
+        if process_vh and scene.vh_available and is_safe_product:
+            try:
+                vh_scene = calibrate_safe(source_input_path, polarisation="VH")
+                vh_filtered = lee_filter(vh_scene.sigma0, size=filter_size)
+                vh_db = to_db(vh_filtered)
+                vh_out_tif = proc_dir / f"{observation_id}_vh_sigma0_db.tif"
+                with rasterio.open(
+                    vh_out_tif,
+                    "w",
+                    driver="GTiff",
+                    height=h_dim,
+                    width=w_dim,
+                    count=1,
+                    dtype=rasterio.float32,
+                    crs=vh_scene.crs,
+                    transform=vh_scene.transform,
+                    compress="deflate",
+                ) as vh_dst:
+                    vh_dst.write(vh_db.astype(np.float32), 1)
+                    vh_dst.update_tags(
+                        PIPELINE="VARUNA QUICKLOOK SAR ANALYSIS",
+                        TERRAIN_CORRECTION="NONE",
+                        POLARISATION="VH",
+                        RADIOMETRIC_MODE=vh_scene.radiometric_mode,
+                        FILTER="LEE_SPECKLE_MMSE",
+                        FILTER_SIZE=str(filter_size),
+                        DB_WINDOW=f"{db_window[0]},{db_window[1]}",
+                    )
+                h_vh = hashlib.sha256()
+                with vh_out_tif.open("rb") as f:
+                    while chunk := f.read(65536):
+                        h_vh.update(chunk)
+                vh_sha256 = h_vh.hexdigest()
+                vh_tif_path = str(vh_out_tif)
+                vh_processed = True
+            except Exception as vh_exc:
+                logger.warning(f"VH channel processing skipped due to error: {vh_exc}")
+
+        duration = round(time.time() - start_clock, 2)
         completed_at = datetime.now(timezone.utc).isoformat()
+
         result = PreprocessedSceneResult(
             case_id=case_id,
             observation_id=observation_id,
             source_input_path=str(source_input_path),
             input_sha256=input_sha256,
+            product_id=p_in.stem,
             raster_dimensions=(h_dim, w_dim),
             crs=str(scene.crs),
+            polarization=scene.polarisation,
+            radiometric_mode=scene.radiometric_mode,
+            filter_size=filter_size,
             vv_processed=True,
             vh_available=scene.vh_available,
+            vh_processed=vh_processed,
             processed_db_geotiff_path=str(out_tif),
+            vh_processed_db_geotiff_path=vh_tif_path,
             output_sha256=out_sha256,
+            vh_output_sha256=vh_sha256,
+            processing_duration_seconds=duration,
             started_at=started_at,
             completed_at=completed_at,
             status="SUCCESS",
@@ -441,6 +571,7 @@ def execute_quicklook_preprocessing(
         return result, scene, filtered_sigma0, sigma0_db
 
     except Exception as exc:
+        duration = round(time.time() - start_clock, 2)
         completed_at = datetime.now(timezone.utc).isoformat()
         logger.error(f"Quicklook preprocessing failed: {exc}", exc_info=True)
         result = PreprocessedSceneResult(
@@ -450,10 +581,15 @@ def execute_quicklook_preprocessing(
             input_sha256=input_sha256,
             raster_dimensions=(0, 0),
             crs="",
+            polarization=polarisation.upper(),
+            radiometric_mode=RADIOMETRIC_MODE_UNKNOWN,
+            filter_size=filter_size,
             vv_processed=False,
             vh_available=False,
+            vh_processed=False,
             processed_db_geotiff_path="",
             output_sha256="",
+            processing_duration_seconds=duration,
             started_at=started_at,
             completed_at=completed_at,
             status="FAILED",

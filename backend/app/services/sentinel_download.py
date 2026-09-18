@@ -97,10 +97,14 @@ class ProductAcquisitionResult(BaseModel):
     safe_dir_path: Optional[str] = None
     bytes_downloaded: int = 0
     sha256: str = ""
+    manifest_valid: bool = False
+    vv_measurement_path: Optional[str] = None
+    vh_measurement_path: Optional[str] = None
     started_at: str
     completed_at: str
     status: str
     error_message: Optional[str] = None
+
 
 
 def compute_file_sha256(filepath: Union[str, Path], chunk_size: int = 65536) -> str:
@@ -365,13 +369,27 @@ def acquire_observation_product(
         sha256_hash = compute_file_sha256(archive_path)
 
         safe_dir_path = None
+        manifest_valid = False
+        vv_path = None
+        vh_path = None
+
         if extract_safe and zipfile.is_zipfile(archive_path):
             with zipfile.ZipFile(archive_path, "r") as zf:
                 zf.extractall(raw_dir)
             # Find extracted .SAFE directory
             safe_dirs = list(raw_dir.glob("*.SAFE"))
             if safe_dirs:
-                safe_dir_path = str(safe_dirs[0])
+                safe_p = safe_dirs[0]
+                safe_dir_path = str(safe_p)
+                manifest_file = safe_p / "manifest.safe"
+                if manifest_file.exists() and manifest_file.stat().st_size > 0:
+                    manifest_valid = True
+                vv_files = list(safe_p.glob("measurement/*-vv-*")) or list(safe_p.glob("*-vv-*"))
+                if vv_files:
+                    vv_path = str(vv_files[0])
+                vh_files = list(safe_p.glob("measurement/*-vh-*")) or list(safe_p.glob("*-vh-*"))
+                if vh_files:
+                    vh_path = str(vh_files[0])
 
         completed_at = datetime.now(timezone.utc).isoformat()
         return ProductAcquisitionResult(
@@ -385,10 +403,14 @@ def acquire_observation_product(
             safe_dir_path=safe_dir_path,
             bytes_downloaded=bytes_downloaded,
             sha256=sha256_hash,
+            manifest_valid=manifest_valid,
+            vv_measurement_path=vv_path,
+            vh_measurement_path=vh_path,
             started_at=started_at,
             completed_at=completed_at,
             status="SUCCESS",
         )
+
     except Exception as de:
         completed_at = datetime.now(timezone.utc).isoformat()
         logger.error(f"Failed to acquire satellite product: {de}", exc_info=True)
