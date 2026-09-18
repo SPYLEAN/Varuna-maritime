@@ -296,7 +296,7 @@ def audit_task009b_execution(
     # 16. Blindness Reconfirmation Scan
     blindness_passed = True
     code_files = [
-        Path(r"C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra\backend\app\services\hindcast_engine.py"),
+        Path(__file__).resolve().parent / "hindcast_engine.py",
         h_dir / "R001_HINDCAST_CONFIG.json",
     ]
     forbidden_terms = ["-20.4404, 57.7447", "20.4404°S", "57.7447°E", "9115711", "273456780", "MV WAKASHIO"]

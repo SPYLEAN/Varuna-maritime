@@ -28,6 +28,10 @@ def create_case(payload: CaseCreate) -> Case:
         longitude=payload.longitude,
         source=payload.source,
         tags=payload.tags,
+        region=payload.region,
+        incident_type=payload.incident_type,
+        priority=payload.priority,
+        aoi_geojson=payload.aoi_geojson,
         created_at=now_iso,
     )
 

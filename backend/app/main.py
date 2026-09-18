@@ -1,8 +1,9 @@
+import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
 from .routers import analysis, cases, evidence, files, investigation
-from .routers.investigation import router as investigation_router, job_router
+from .routers.investigation import router as investigation_router, job_router, get_r001_dir
 
 SAMUDRANETRA_VERSION = "0.9.0-rc1"
 
@@ -21,7 +22,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Storage & Component Analysis Routers (Mounted on /cases)
+# API v1 Product Namespace (/api/v1/cases, /api/v1/cases/{id}/evidence, etc.)
+app.include_router(cases.router, prefix="/api/v1")
+app.include_router(evidence.router, prefix="/api/v1")
+app.include_router(analysis.router, prefix="/api/v1")
+app.include_router(files.router, prefix="/api/v1")
+
+# Storage & Component Analysis Routers (Mounted on root /cases for backward compatibility)
 app.include_router(cases.router)
 app.include_router(evidence.router)
 app.include_router(analysis.router)
@@ -35,7 +42,7 @@ app.include_router(job_router, prefix="/api")
 
 @app.get("/health")
 def health():
-    r_dir = Path(r"C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra-Research\R001_WAKASHIO")
+    r_dir = get_r001_dir()
     case_data_ready = (r_dir / "07_results").exists()
     return {
         "status": "healthy",
@@ -48,7 +55,7 @@ def health():
 
 @app.get("/ready")
 def ready():
-    r_dir = Path(r"C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra-Research\R001_WAKASHIO")
+    r_dir = get_r001_dir()
     case_data_ready = (r_dir / "07_results").exists()
     return {
         "status": "READY" if case_data_ready else "DEGRADED",
@@ -60,4 +67,4 @@ def ready():
 
 @app.get("/version")
 def get_version():
-    return {"version": SAMUDRANETRA_VERSION, "release_stage": "PRODUCTION_CANDIDATE"}
+    return {"version": SAMUDRANETRA_VERSION, "release_stage": "RESEARCH_GOV_DEMO_PROTOTYPE"}

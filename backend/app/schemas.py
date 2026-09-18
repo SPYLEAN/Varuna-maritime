@@ -119,6 +119,10 @@ class CaseCreate(BaseModel):
     longitude: Optional[float] = None
     source: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    region: Optional[str] = None
+    incident_type: Optional[str] = None
+    priority: Optional[str] = "NORMAL"
+    aoi_geojson: Optional[Dict[str, Any]] = None
 
 
 class Case(BaseModel):
@@ -130,6 +134,10 @@ class Case(BaseModel):
     longitude: Optional[float] = None
     source: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
+    region: Optional[str] = None
+    incident_type: Optional[str] = None
+    priority: Optional[str] = "NORMAL"
+    aoi_geojson: Optional[Dict[str, Any]] = None
     created_at: str
     analysis_status: AnalysisStatus = Field(default_factory=AnalysisStatus)
     data_manifest: DataManifest = Field(default_factory=DataManifest)

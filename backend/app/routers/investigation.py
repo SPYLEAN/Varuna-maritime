@@ -2,6 +2,7 @@
 FastAPI Router for SAMUDRANETRA Live Operational Prototype & Investigation API Endpoints.
 """
 
+import os
 import time
 import threading
 from pathlib import Path
@@ -21,16 +22,36 @@ from backend.app.services.geotiff_validator import validate_geotiff_raster, GeoT
 from backend.app.services.ais_csv_ingestion import parse_marinecadastre_ais_csv, AisCsvValidationError
 from backend.app.services.opendrift_forecast_engine import run_opendrift_forward_forecast
 
-R001_DIR = Path(r"C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra-Research\R001_WAKASHIO")
+
+def get_r001_dir() -> Path:
+    env_dir = os.environ.get("VARUNA_R001_DATA_DIR")
+    if env_dir and Path(env_dir).exists():
+        return Path(env_dir)
+    try:
+        sibling = Path(__file__).resolve().parents[4] / "SamudraNetra-Research" / "R001_WAKASHIO"
+        if sibling.exists():
+            return sibling
+    except Exception:
+        pass
+    try:
+        local = Path(__file__).resolve().parents[3] / "data" / "r001_wakashio"
+        if local.exists():
+            return local
+    except Exception:
+        pass
+    return Path("data/r001_wakashio")
+
+
+R001_DIR = get_r001_dir()
 
 router = APIRouter(prefix="", tags=["Investigation API"])
 
 
 def _check_case_id(case_id: str):
-    if case_id.upper() not in ["R001_WAKASHIO", "R001", "CASE_R001", "NEW_INVESTIGATION", "CUSTOM_CASE"]:
+    if case_id.upper() not in ["R001_WAKASHIO", "R001", "CASE_R001"]:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Investigation case '{case_id}' not found.",
+            detail=f"BENCHMARK_ENDPOINT_NOT_AVAILABLE_FOR_GENERIC_CASE: Investigation benchmark case '{case_id}' not found. Generic cases must use the /api/v1/cases product API.",
         )
 
 
@@ -53,7 +74,7 @@ def list_cases() -> List[Dict[str, Any]]:
 @router.post("", response_model=Dict[str, Any])
 def create_investigation(payload: Optional[Dict[str, Any]] = Body(None)) -> Dict[str, Any]:
     """
-    Creates a new investigation case or initializes the validated benchmark R001.
+    Initializes the validated benchmark R001. Generic cases must use /api/v1/cases.
     """
     payload = payload or {}
     case_type = payload.get("case_type", "BENCHMARK")
@@ -67,13 +88,10 @@ def create_investigation(payload: Optional[Dict[str, Any]] = Body(None)) -> Dict
             "sar_product": c["satellite_product_id"],
             "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
-    return {
-        "status": "CREATED",
-        "case_id": "CUSTOM_CASE",
-        "case_name": payload.get("case_name", "Custom Maritime Incident"),
-        "mode": "NEW SAR OBSERVATION UPLOAD",
-        "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ")
-    }
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="BENCHMARK_ENDPOINT_NOT_AVAILABLE_FOR_GENERIC_CASE: Benchmark API cannot create generic cases. Use POST /api/v1/cases.",
+    )
 
 
 @router.get("/{case_id}", response_model=Dict[str, Any])

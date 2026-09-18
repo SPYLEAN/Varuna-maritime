@@ -4,7 +4,42 @@
    ========================================================================== */
 
 (function () {
-  const API_BASE = (window.SAMUDRANETRA_API_BASE_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : window.location.origin)) + "/api";
+  const API_ORIGIN = window.SAMUDRANETRA_API_BASE_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : window.location.origin);
+  const PRODUCT_API_BASE = `${API_ORIGIN}/api/v1`;
+  const BENCHMARK_API_BASE = `${API_ORIGIN}/api/investigations`;
+  const API_BASE = `${API_ORIGIN}/api`;
+
+  function isBenchmarkCase(caseId) {
+    if (!caseId) return false;
+    const upper = caseId.toUpperCase();
+    return upper === "R001_WAKASHIO" || upper === "R001" || upper === "CASE_R001";
+  }
+
+  // Canonical Validated Benchmark Case Definition
+  const R001_BENCHMARK_RECORD = {
+    case_id: "R001_WAKASHIO",
+    case_name: "Mauritius Oil Spill Incident",
+    location: "Point d'Esny, Mauritius",
+    region: "Point d'Esny, Mauritius (Indian Ocean)",
+    mode: "Historical Benchmark Case",
+    stage: "Review Ready",
+    status: "VALIDATED BENCHMARK",
+    last_updated: "2026-09-02 10:45 UTC",
+    is_benchmark: true,
+    observation_status: "VALIDATED",
+    detection_status: "COMPLETE",
+    selected_candidate: "C4053",
+    hindcast_status: "COMPLETE",
+    forecast_status: "COMPLETE",
+    ais_status: "SYNTHETIC_DEMO",
+    review_status: "READY",
+    activity: [
+      { time: "2020-08-10 01:38 UTC", text: "Sentinel-1B SAR scene acquired and validated" },
+      { time: "2020-08-10 02:15 UTC", text: "Slick candidate triage completed: 45 groups → C4053 selected (ML: 0.5818)" },
+      { time: "2020-08-10 03:00 UTC", text: "OpenDrift backward hindcast computed: ~24.17 km distance @ 24h" },
+      { time: "2020-08-10 04:30 UTC", text: "OpenDrift forward forecast trajectory computed (T0 → T+48h)" }
+    ]
+  };
 
   // Normalized Enterprise Case Registry State
   const state = {
@@ -14,31 +49,8 @@
     activeEdgeState: "NORMAL_CASE",
     isGuidedMode: true,
     
-    // Case Registry Database (Persisted)
-    cases: [
-      {
-        case_id: "R001_WAKASHIO",
-        case_name: "Mauritius Oil Spill Incident",
-        location: "Point d'Esny, Mauritius",
-        mode: "Historical Case Review",
-        stage: "Review Ready",
-        status: "IN REVIEW",
-        last_updated: "2026-09-02 10:45 UTC",
-        observation_status: "COMPLETE",
-        detection_status: "COMPLETE",
-        selected_candidate: "C4053",
-        hindcast_status: "COMPLETE",
-        forecast_status: "COMPLETE",
-        ais_status: "NOT_LOADED",
-        review_status: "READY",
-        activity: [
-          { time: "2020-08-10 01:38 UTC", text: "Sentinel-1B SAR scene acquired and validated" },
-          { time: "2020-08-10 02:15 UTC", text: "Slick candidate triage completed: 45 groups → C4053 selected" },
-          { time: "2020-08-10 03:00 UTC", text: "OpenDrift backward hindcast computed: ~24.17 km distance @ 24h" },
-          { time: "2020-08-10 04:30 UTC", text: "OpenDrift forward forecast trajectory computed (T0 → T+48h)" }
-        ]
-      }
-    ],
+    // Case Registry Database (Backed by /api/v1/cases + Pinned Benchmark)
+    cases: [R001_BENCHMARK_RECORD],
 
     // Active View Settings
     activeSarBand: "VV",
@@ -93,13 +105,51 @@
     }
   }
 
+  async function loadCasesFromBackend() {
+    try {
+      const res = await fetch(`${PRODUCT_API_BASE}/cases`);
+      if (res.ok) {
+        const backendCases = await res.json();
+        const mappedGeneric = backendCases.map(bc => ({
+          case_id: bc.case_id,
+          case_name: bc.name,
+          location: bc.region || (bc.latitude && bc.longitude ? `${bc.latitude.toFixed(2)}°, ${bc.longitude.toFixed(2)}°` : "Custom AOI"),
+          region: bc.region,
+          latitude: bc.latitude,
+          longitude: bc.longitude,
+          aoi_geojson: bc.aoi_geojson,
+          mode: bc.incident_type || "Operational Oil Spill",
+          stage: bc.analysis_status?.oil_detection === "completed" ? "Analysis Complete" : "Observation Required",
+          status: bc.analysis_status?.oil_detection === "completed" ? "ACTIVE" : "NEW",
+          last_updated: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent",
+          is_benchmark: false,
+          observation_status: (bc.data_manifest?.evidence && bc.data_manifest.evidence.some(e => e.evidence_type === "sar_image")) ? "ATTACHED" : "NO OBSERVATION ATTACHED",
+          detection_status: bc.analysis_status?.oil_detection || "not_started",
+          selected_candidate: null,
+          hindcast_status: bc.analysis_status?.hindcast || "not_started",
+          forecast_status: "not_started",
+          ais_status: bc.analysis_status?.ais_correlation || "not_started",
+          review_status: "INCOMPLETE",
+          activity: [
+            { time: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent", text: `Case ${bc.case_id} registered in database` }
+          ]
+        }));
+        state.cases = [R001_BENCHMARK_RECORD, ...mappedGeneric.filter(c => c.case_id !== "R001_WAKASHIO")];
+      }
+    } catch (err) {
+      console.warn("Failed to load cases from /api/v1/cases:", err);
+    }
+    renderOpsHome();
+    if (window.renderCasesRegistry) window.renderCasesRegistry();
+  }
+
   /* ==========================================================================
      INITIALIZATION & STATE RECOVERY
      ========================================================================== */
 
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
     loadPersistedState();
-    initApp();
+    await initApp();
   });
 
   function loadPersistedState() {
@@ -107,7 +157,6 @@
       const saved = localStorage.getItem("varuna_enterprise_state");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.cases && parsed.cases.length > 0) state.cases = parsed.cases;
         if (parsed.investigationId) state.investigationId = parsed.investigationId;
       }
     } catch (e) {
@@ -118,7 +167,6 @@
   function persistState() {
     try {
       localStorage.setItem("varuna_enterprise_state", JSON.stringify({
-        cases: state.cases,
         investigationId: state.investigationId
       }));
     } catch (e) {
@@ -127,8 +175,9 @@
   }
 
   async function initApp() {
+    await loadCasesFromBackend();
     renderOpsHome();
-    renderCasesRegistry();
+    window.renderCasesRegistry();
     window.switchDomain(state.currentDomain);
   }
 
@@ -260,17 +309,18 @@
 
   function renderCaseOverview() {
     const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
+    const isBench = isBenchmarkCase(activeCase.case_id);
     const tTitle = document.getElementById("ov-case-id-title");
     const tSub = document.getElementById("ov-case-subtitle");
     const tBadge = document.getElementById("ov-badge-status");
 
     if (tTitle) tTitle.innerText = `CASE ${activeCase.case_id} — ${activeCase.case_name}`;
-    if (tSub) tSub.innerText = `${activeCase.location} | ${activeCase.mode}`;
-    if (tBadge) tBadge.innerText = activeCase.status;
+    if (tSub) tSub.innerText = `${activeCase.location} | ${isBench ? "Historical Benchmark Case" : activeCase.mode}`;
+    if (tBadge) tBadge.innerText = isBench ? "VALIDATED BENCHMARK" : activeCase.status;
   }
 
   /* ==========================================================================
-     NEW CASE GUIDED WIZARD (4 STEPS)
+     NEW CASE GUIDED WIZARD (4 STEPS — CONNECTED TO /api/v1/cases)
      ========================================================================== */
 
   window.openNewCaseWizard = function () {
@@ -300,33 +350,55 @@
   };
 
   window.submitNewCaseWizard = async function () {
-    const cId = document.getElementById("wiz-case-id")?.value || `CASE_${Date.now()}`;
     const cName = document.getElementById("wiz-case-name")?.value || "New Maritime Incident";
     const cType = document.getElementById("wiz-case-type")?.value || "Operational Oil Spill";
-    const cLoc = document.getElementById("wiz-case-location")?.value || "Point d'Esny, Mauritius";
+    const cLoc = document.getElementById("wiz-case-location")?.value || "Custom Maritime Location";
 
-    const newCase = {
-      case_id: cId,
-      case_name: cName,
-      location: cLoc,
-      mode: cType,
-      stage: "Observation Review",
-      status: "ACTIVE",
-      last_updated: new Date().toISOString().substr(0, 16).replace("T", " ") + " UTC",
-      observation_status: "VALIDATED",
-      detection_status: "READY",
-      selected_candidate: "C4053",
-      hindcast_status: "READY",
-      forecast_status: "READY",
-      ais_status: "NOT_LOADED",
-      review_status: "READY",
-      activity: [
-        { time: new Date().toISOString().substr(0, 16).replace("T", " ") + " UTC", text: `Case ${cId} created via Enterprise Guided Wizard` }
-      ]
+    // Build real GeoJSON polygon from defined AOI coordinates
+    const aoiGeoJson = {
+      type: "Polygon",
+      coordinates: [[
+        [57.10, -20.75],
+        [58.30, -20.75],
+        [58.30, -19.70],
+        [57.10, -19.70],
+        [57.10, -20.75]
+      ]]
     };
 
-    state.cases.unshift(newCase);
-    state.investigationId = cId;
+    const payload = {
+      name: cName,
+      description: `Operational case created via Enterprise Guided Wizard: ${cLoc}`,
+      incident_type: cType,
+      region: cLoc,
+      priority: "NORMAL",
+      source: "Enterprise Guided Wizard",
+      tags: ["operational", cType.toLowerCase().replace(/\s+/g, "-")],
+      aoi_geojson: aoiGeoJson,
+      latitude: -20.22,
+      longitude: 57.70
+    };
+
+    let createdCaseId = null;
+    try {
+      const res = await fetch(`${PRODUCT_API_BASE}/cases`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        createdCaseId = created.case_id;
+      }
+    } catch (e) {
+      console.error("Failed to post case to /api/v1/cases:", e);
+    }
+
+    await loadCasesFromBackend();
+
+    if (createdCaseId) {
+      state.investigationId = createdCaseId;
+    }
     persistState();
     window.closeNewCaseWizard();
     window.switchDomain("OVERVIEW");
@@ -339,89 +411,147 @@
   };
 
   /* ==========================================================================
-     DOMAIN 01: OBSERVE WORKSPACE (REAL SAR VIEWER IN STITCH SHELL)
+     DOMAIN 01: OBSERVE WORKSPACE (REAL SAR VIEWER / ZERO-LEAKAGE EMPTY STATE)
      ========================================================================== */
 
   function initObserveMap() {
     const mapContainer = document.getElementById("map-observe");
     if (!mapContainer) return;
 
+    const isBench = isBenchmarkCase(state.investigationId);
     const sarBounds = [[-20.750033, 57.09998], [-19.699993, 58.300039]];
 
     if (!state.maps.observe) {
       state.maps.observe = L.map("map-observe", { center: [-20.4382, 57.7432], zoom: 10, zoomControl: false, attributionControl: false });
       state.maps.observe.on("mousemove", (e) => updateStatusBarCoords(e.latlng.lat, e.latlng.lng));
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}").addTo(state.maps.observe);
     }
 
     state.maps.observe.invalidateSize();
 
-    let sarImgUrl = state.activeSarBand === "VH" ? "assets/sar_vh_display.webp" : "assets/sar_vv_display.webp";
-    if (state.sarOverlays.observe) state.maps.observe.removeLayer(state.sarOverlays.observe);
+    if (state.sarOverlays.observe) {
+      state.maps.observe.removeLayer(state.sarOverlays.observe);
+      state.sarOverlays.observe = null;
+    }
+    state.maps.observe.eachLayer(l => {
+      if (l instanceof L.Polygon || l instanceof L.GeoJSON) state.maps.observe.removeLayer(l);
+    });
 
-    state.sarOverlays.observe = L.imageOverlay(sarImgUrl, sarBounds, { opacity: state.activeSarBand === "COMPARE" ? 0.80 : 1.0, interactive: false }).addTo(state.maps.observe);
+    const taskEl = document.getElementById("guided-observe-task");
+    const descEl = document.getElementById("guided-observe-desc");
 
-    state.maps.observe.eachLayer(l => { if (l instanceof L.Polygon) state.maps.observe.removeLayer(l); });
-    L.polygon(sarBounds, { color: "#38BDF8", weight: 1.5, dashArray: "4,4", fillColor: "transparent" }).addTo(state.maps.observe);
-    state.maps.observe.fitBounds(sarBounds, { padding: [10, 10], animate: false });
+    if (isBench) {
+      let sarImgUrl = state.activeSarBand === "VH" ? "assets/sar_vh_display.webp" : "assets/sar_vv_display.webp";
+      state.sarOverlays.observe = L.imageOverlay(sarImgUrl, sarBounds, { opacity: state.activeSarBand === "COMPARE" ? 0.80 : 1.0, interactive: false }).addTo(state.maps.observe);
+      L.polygon(sarBounds, { color: "#38BDF8", weight: 1.5, dashArray: "4,4", fillColor: "transparent" }).addTo(state.maps.observe);
+      state.maps.observe.fitBounds(sarBounds, { padding: [10, 10], animate: false });
+
+      if (taskEl) taskEl.innerText = "Observation Review";
+      if (descEl) descEl.innerText = "Sentinel-1 SAR scene validated and calibrated. Next step: Run oil-like slick detection.";
+    } else {
+      // ZERO-LEAKAGE EMPTY STATE FOR GENERIC CASES
+      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+      if (taskEl) taskEl.innerText = "NO OBSERVATION ATTACHED";
+      if (descEl) descEl.innerText = "No Sentinel-1 SAR observation has been uploaded to this investigation case. Attach a SAR GeoTIFF or product archive to initiate analysis.";
+
+      if (activeCase && activeCase.aoi_geojson) {
+        try {
+          const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
+            style: { color: "#38BDF8", weight: 2, dashArray: "4,4", fillColor: "#2563eb", fillOpacity: 0.15 }
+          }).addTo(state.maps.observe);
+          state.maps.observe.fitBounds(aoiLayer.getBounds(), { padding: [20, 20], animate: false });
+        } catch (e) {
+          state.maps.observe.setView([0, 0], 2);
+        }
+      } else {
+        state.maps.observe.setView([0, 0], 2);
+      }
+    }
   }
 
   /* ==========================================================================
-     DOMAIN 02: ANALYZE WORKSPACE (REAL SAR + CANDIDATE GEOMETRY)
+     DOMAIN 02: ANALYZE WORKSPACE (CANDIDATE GEOMETRY / ZERO-LEAKAGE EMPTY STATE)
      ========================================================================== */
 
   function initAnalyzeMap() {
     const mapContainer = document.getElementById("map-analyze");
     if (!mapContainer) return;
 
+    const isBench = isBenchmarkCase(state.investigationId);
     const sarBounds = [[-20.750033, 57.09998], [-19.699993, 58.300039]];
 
     if (!state.maps.analyze) {
       state.maps.analyze = L.map("map-analyze", { center: [-20.4382, 57.7432], zoom: 10, zoomControl: false, attributionControl: false });
       state.maps.analyze.on("mousemove", (e) => updateStatusBarCoords(e.latlng.lat, e.latlng.lng));
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}").addTo(state.maps.analyze);
     }
 
     state.maps.analyze.invalidateSize();
 
-    let sarImgUrl = state.activeSarBand === "VH" ? "assets/sar_vh_display.webp" : "assets/sar_vv_display.webp";
-    if (state.sarOverlays.analyze) state.maps.analyze.removeLayer(state.sarOverlays.analyze);
-
-    state.sarOverlays.analyze = L.imageOverlay(sarImgUrl, sarBounds, { opacity: 1.0, interactive: false }).addTo(state.maps.analyze);
-    state.maps.analyze.eachLayer(l => { if (l instanceof L.Polygon) state.maps.analyze.removeLayer(l); });
-
-    const candidates = [
-      { id: "C4053", lat: -20.4382, lon: 57.7432, area: 1.42, ml: 0.5818 },
-      { id: "C3929", lat: -20.4210, lon: 57.7200, area: 0.98, ml: 0.4210 },
-      { id: "C001", lat: -20.4500, lon: 57.7600, area: 1.15, ml: 0.3540 }
-    ];
-
-    candidates.forEach(c => {
-      const isSel = c.id === state.activeCandidateId;
-      const poly = L.polygon([
-        [c.lat - 0.015, c.lon - 0.015],
-        [c.lat - 0.015, c.lon + 0.015],
-        [c.lat + 0.015, c.lon + 0.015],
-        [c.lat + 0.015, c.lon - 0.015]
-      ], {
-        color: isSel ? "#dbe2ff" : "#38BDF8",
-        fillColor: isSel ? "#2563eb" : "#0284C7",
-        fillOpacity: isSel ? 0.65 : 0.35,
-        weight: isSel ? 3 : 1.5
-      });
-      poly.bindPopup(`<b>SAR CANDIDATE ${c.id}</b><br>Area: ${c.area} km²<br>ML Oil-Like Evidence: ${c.ml}<br>Status: ELIGIBLE HYPOTHESIS`);
-      poly.on("click", () => window.selectCandidate(c.id));
-      poly.addTo(state.maps.analyze);
+    if (state.sarOverlays.analyze) {
+      state.maps.analyze.removeLayer(state.sarOverlays.analyze);
+      state.sarOverlays.analyze = null;
+    }
+    state.maps.analyze.eachLayer(l => {
+      if (l instanceof L.Polygon || l instanceof L.GeoJSON) state.maps.analyze.removeLayer(l);
     });
 
-    state.maps.analyze.fitBounds(sarBounds, { padding: [10, 10], animate: false });
+    if (isBench) {
+      let sarImgUrl = state.activeSarBand === "VH" ? "assets/sar_vh_display.webp" : "assets/sar_vv_display.webp";
+      state.sarOverlays.analyze = L.imageOverlay(sarImgUrl, sarBounds, { opacity: 1.0, interactive: false }).addTo(state.maps.analyze);
+
+      const candidates = [
+        { id: "C4053", lat: -20.4382, lon: 57.7432, area: 1.42, ml: 0.5818 },
+        { id: "C3929", lat: -20.4210, lon: 57.7200, area: 0.98, ml: 0.4210 },
+        { id: "C001", lat: -20.4500, lon: 57.7600, area: 1.15, ml: 0.3540 }
+      ];
+
+      candidates.forEach(c => {
+        const isSel = c.id === state.activeCandidateId;
+        const poly = L.polygon([
+          [c.lat - 0.015, c.lon - 0.015],
+          [c.lat - 0.015, c.lon + 0.015],
+          [c.lat + 0.015, c.lon + 0.015],
+          [c.lat + 0.015, c.lon - 0.015]
+        ], {
+          color: isSel ? "#dbe2ff" : "#38BDF8",
+          fillColor: isSel ? "#2563eb" : "#0284C7",
+          fillOpacity: isSel ? 0.65 : 0.35,
+          weight: isSel ? 3 : 1.5
+        });
+        poly.bindPopup(`<b>SAR CANDIDATE ${c.id}</b><br>Area: ${c.area} km²<br>ML Oil-Like Evidence: ${c.ml}<br>Status: ELIGIBLE HYPOTHESIS`);
+        poly.on("click", () => window.selectCandidate(c.id));
+        poly.addTo(state.maps.analyze);
+      });
+
+      state.maps.analyze.fitBounds(sarBounds, { padding: [10, 10], animate: false });
+    } else {
+      // ZERO-LEAKAGE EMPTY STATE FOR GENERIC CASES
+      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+      if (activeCase && activeCase.aoi_geojson) {
+        try {
+          const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
+            style: { color: "#38BDF8", weight: 2, dashArray: "4,4", fillColor: "#2563eb", fillOpacity: 0.15 }
+          }).addTo(state.maps.analyze);
+          state.maps.analyze.fitBounds(aoiLayer.getBounds(), { padding: [20, 20], animate: false });
+        } catch (e) {
+          state.maps.analyze.setView([0, 0], 2);
+        }
+      } else {
+        state.maps.analyze.setView([0, 0], 2);
+      }
+    }
   }
 
   /* ==========================================================================
-     DOMAIN 03: RECONSTRUCTION WORKSPACE (OPENDRIFT PARTICLES)
+     DOMAIN 03: RECONSTRUCTION WORKSPACE (OPENDRIFT PARTICLES / ZERO-LEAKAGE)
      ========================================================================== */
 
   function initReconstructMap() {
     const mapContainer = document.getElementById("map-reconstruct");
     if (!mapContainer) return;
+
+    const isBench = isBenchmarkCase(state.investigationId);
 
     if (!state.maps.reconstruct) {
       state.maps.reconstruct = L.map("map-reconstruct", { center: [-20.4382, 57.7432], zoom: 10, zoomControl: true, attributionControl: false });
@@ -431,22 +561,41 @@
 
     state.maps.reconstruct.invalidateSize();
     state.maps.reconstruct.eachLayer(layer => {
-      if (layer instanceof L.Polygon || layer instanceof L.CircleMarker) state.maps.reconstruct.removeLayer(layer);
+      if (layer instanceof L.Polygon || layer instanceof L.CircleMarker || layer instanceof L.GeoJSON) state.maps.reconstruct.removeLayer(layer);
     });
 
-    if (state.physicsMode === "HINDCAST") {
-      L.polygon([[-20.35, 57.65], [-20.35, 57.85], [-20.55, 57.85], [-20.55, 57.65]], { color: "#fbbf24", fillColor: "#fbbf24", fillOpacity: 0.25, weight: 2, dashArray: "6,6" }).addTo(state.maps.reconstruct);
-      for (let p = 0; p < 80; p++) {
-        const pLat = -20.4382 + (Math.sin(p * 0.4) * 0.08);
-        const pLon = 57.7432 + (Math.cos(p * 0.4) * 0.09);
-        L.circleMarker([pLat, pLon], { radius: 2.5, color: "#fbbf24", fillColor: "#fbbf24", fillOpacity: 0.85 }).addTo(state.maps.reconstruct);
+    if (isBench) {
+      if (state.physicsMode === "HINDCAST") {
+        L.polygon([[-20.35, 57.65], [-20.35, 57.85], [-20.55, 57.85], [-20.55, 57.65]], { color: "#fbbf24", fillColor: "#fbbf24", fillOpacity: 0.25, weight: 2, dashArray: "6,6" }).addTo(state.maps.reconstruct);
+        for (let p = 0; p < 80; p++) {
+          const pLat = -20.4382 + (Math.sin(p * 0.4) * 0.08);
+          const pLon = 57.7432 + (Math.cos(p * 0.4) * 0.09);
+          L.circleMarker([pLat, pLon], { radius: 2.5, color: "#fbbf24", fillColor: "#fbbf24", fillOpacity: 0.85 }).addTo(state.maps.reconstruct);
+        }
+        state.maps.reconstruct.setView([-20.4382, 57.7432], 10);
+      } else {
+        L.polygon([[-20.45, 57.75], [-20.45, 58.15], [-20.75, 58.15], [-20.75, 57.75]], { color: "#b4c5ff", fillColor: "#b4c5ff", fillOpacity: 0.3, weight: 2, dashArray: "4,4" }).addTo(state.maps.reconstruct);
+        for (let p = 0; p < 100; p++) {
+          const pLat = -20.4382 - (p * 0.002) + (Math.sin(p * 0.3) * 0.04);
+          const pLon = 57.7432 + (p * 0.003) + (Math.cos(p * 0.3) * 0.04);
+          L.circleMarker([pLat, pLon], { radius: 3, color: "#b4c5ff", fillColor: "#b4c5ff", fillOpacity: 0.9 }).addTo(state.maps.reconstruct);
+        }
+        state.maps.reconstruct.setView([-20.4382, 57.7432], 10);
       }
     } else {
-      L.polygon([[-20.45, 57.75], [-20.45, 58.15], [-20.75, 58.15], [-20.75, 57.75]], { color: "#b4c5ff", fillColor: "#b4c5ff", fillOpacity: 0.3, weight: 2, dashArray: "4,4" }).addTo(state.maps.reconstruct);
-      for (let p = 0; p < 100; p++) {
-        const pLat = -20.4382 - (p * 0.002) + (Math.sin(p * 0.3) * 0.04);
-        const pLon = 57.7432 + (p * 0.003) + (Math.cos(p * 0.3) * 0.04);
-        L.circleMarker([pLat, pLon], { radius: 3, color: "#b4c5ff", fillColor: "#b4c5ff", fillOpacity: 0.9 }).addTo(state.maps.reconstruct);
+      // ZERO-LEAKAGE EMPTY STATE FOR GENERIC CASES
+      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+      if (activeCase && activeCase.aoi_geojson) {
+        try {
+          const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
+            style: { color: "#38BDF8", weight: 2, dashArray: "4,4", fillColor: "#2563eb", fillOpacity: 0.15 }
+          }).addTo(state.maps.reconstruct);
+          state.maps.reconstruct.fitBounds(aoiLayer.getBounds(), { padding: [20, 20], animate: false });
+        } catch (e) {
+          state.maps.reconstruct.setView([0, 0], 2);
+        }
+      } else {
+        state.maps.reconstruct.setView([0, 0], 2);
       }
     }
   }
@@ -455,26 +604,43 @@
     const bdy = document.getElementById("reconstruct-inspector-body");
     if (!bdy) return;
 
-    bdy.innerHTML = `
-      <div class="p-3 border-b border-outline-variant bg-surface-container font-semibold text-on-surface">Physics Transport</div>
-      <div class="p-3 space-y-3 font-data-mono text-xs">
-        <div class="p-2.5 bg-surface-container rounded border border-outline-variant">
-          <div class="text-[10px] text-outline uppercase">CURRENT TASK</div>
-          <div class="text-primary font-bold text-sm mt-0.5">${state.physicsMode} TRANSPORT</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">OpenDrift advection model computed under ERA5/HYCOM/CMEMS forcing.</div>
+    const isBench = isBenchmarkCase(state.investigationId);
+    if (isBench) {
+      bdy.innerHTML = `
+        <div class="p-3 border-b border-outline-variant bg-surface-container font-semibold text-on-surface">Physics Transport</div>
+        <div class="p-3 space-y-3 font-data-mono text-xs">
+          <div class="p-2.5 bg-surface-container rounded border border-outline-variant">
+            <div class="text-[10px] text-outline uppercase">CURRENT TASK</div>
+            <div class="text-primary font-bold text-sm mt-0.5">${state.physicsMode} TRANSPORT</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">OpenDrift advection model computed under ERA5/HYCOM/CMEMS forcing.</div>
+          </div>
+          <button class="w-full h-8 bg-primary text-on-primary font-bold uppercase rounded" onclick="window.runForecast()">RE-RUN FORWARD FORECAST</button>
         </div>
-        <button class="w-full h-8 bg-primary text-on-primary font-bold uppercase rounded" onclick="window.runForecast()">RE-RUN FORWARD FORECAST</button>
-      </div>
-    `;
+      `;
+    } else {
+      bdy.innerHTML = `
+        <div class="p-3 border-b border-outline-variant bg-surface-container font-semibold text-on-surface">Physics Transport</div>
+        <div class="p-3 space-y-3 font-data-mono text-xs">
+          <div class="p-2.5 bg-surface-container rounded border border-outline-variant">
+            <div class="text-[10px] text-outline uppercase">CURRENT TASK</div>
+            <div class="text-warning-amber font-bold text-sm mt-0.5">CANDIDATE + ENVIRONMENTAL FORCING REQUIRED</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">Advection simulation requires confirmed candidate slick polygons and co-registered metocean forcing.</div>
+          </div>
+          <button class="w-full h-8 bg-surface-variant text-outline font-bold uppercase rounded cursor-not-allowed" disabled>AWAITING OBSERVATION</button>
+        </div>
+      `;
+    }
   }
 
   /* ==========================================================================
-     DOMAIN 04: VESSEL INTELLIGENCE WORKSPACE (AIS TRACKS)
+     DOMAIN 04: VESSEL INTELLIGENCE WORKSPACE (AIS TRACKS / ZERO-LEAKAGE)
      ========================================================================== */
 
   function initAttributeMap() {
     const mapContainer = document.getElementById("map-attribute");
     if (!mapContainer) return;
+
+    const isBench = isBenchmarkCase(state.investigationId);
 
     if (!state.maps.attribute) {
       state.maps.attribute = L.map("map-attribute", { center: [-20.4382, 57.7432], zoom: 10, zoomControl: true, attributionControl: false });
@@ -484,74 +650,150 @@
 
     state.maps.attribute.invalidateSize();
     state.maps.attribute.eachLayer(layer => {
-      if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.CircleMarker) state.maps.attribute.removeLayer(layer);
+      if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.CircleMarker || layer instanceof L.GeoJSON) state.maps.attribute.removeLayer(layer);
     });
 
-    const vTracks = [
-      { name: "VESSEL_BETA", color: "#4ade80", points: [[-20.35, 57.65], [-20.40, 57.70], [-20.44, 57.74]] },
-      { name: "VESSEL_ALPHA", color: "#fbbf24", points: [[-20.30, 57.60], [-20.38, 57.68], [-20.45, 57.78]] }
-    ];
+    if (isBench) {
+      const vTracks = [
+        { name: "VESSEL_BETA", color: "#4ade80", points: [[-20.35, 57.65], [-20.40, 57.70], [-20.44, 57.74]] },
+        { name: "VESSEL_ALPHA", color: "#fbbf24", points: [[-20.30, 57.60], [-20.38, 57.68], [-20.45, 57.78]] }
+      ];
 
-    vTracks.forEach(vt => {
-      L.polyline(vt.points, { color: vt.color, weight: 3.5, opacity: 0.9 }).addTo(state.maps.attribute);
-      L.circleMarker(vt.points[vt.points.length - 1], { radius: 5, color: vt.color, fillColor: vt.color, fillOpacity: 1 }).addTo(state.maps.attribute);
-    });
+      vTracks.forEach(vt => {
+        L.polyline(vt.points, { color: vt.color, weight: 3.5, opacity: 0.9 }).addTo(state.maps.attribute);
+        L.circleMarker(vt.points[vt.points.length - 1], { radius: 5, color: vt.color, fillColor: vt.color, fillOpacity: 1 }).addTo(state.maps.attribute);
+      });
+      state.maps.attribute.setView([-20.4382, 57.7432], 10);
+    } else {
+      // ZERO-LEAKAGE EMPTY STATE FOR GENERIC CASES
+      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+      if (activeCase && activeCase.aoi_geojson) {
+        try {
+          const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
+            style: { color: "#38BDF8", weight: 2, dashArray: "4,4", fillColor: "#2563eb", fillOpacity: 0.15 }
+          }).addTo(state.maps.attribute);
+          state.maps.attribute.fitBounds(aoiLayer.getBounds(), { padding: [20, 20], animate: false });
+        } catch (e) {
+          state.maps.attribute.setView([0, 0], 2);
+        }
+      } else {
+        state.maps.attribute.setView([0, 0], 2);
+      }
+    }
   }
 
   function renderAttributeInspector() {
     const bdy = document.getElementById("attribute-inspector-body");
     if (!bdy) return;
 
-    bdy.innerHTML = `
-      <div class="p-3 border-b border-outline-variant bg-surface-container font-semibold text-on-surface">Vessel Intelligence</div>
-      <div class="p-3 space-y-3 font-data-mono text-xs">
-        <div class="p-2 bg-warning-amber/10 border border-warning-amber/30 text-warning-amber rounded text-[10px]">
-          SYNTHETIC AIS DEMONSTRATION — HISTORICAL ATTRIBUTION NOT VALID
+    const isBench = isBenchmarkCase(state.investigationId);
+    if (isBench) {
+      bdy.innerHTML = `
+        <div class="p-3 border-b border-outline-variant bg-surface-container font-semibold text-on-surface">Vessel Intelligence</div>
+        <div class="p-3 space-y-3 font-data-mono text-xs">
+          <div class="p-2 bg-warning-amber/10 border border-warning-amber/30 text-warning-amber rounded text-[10px]">
+            SYNTHETIC AIS DEMONSTRATION — HISTORICAL ATTRIBUTION NOT VALID
+          </div>
+          <div class="p-2 bg-surface-container rounded border border-outline-variant">
+            <div class="text-success-green font-bold">1. VESSEL_BETA (IMO 9876543)</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">Priority: 0.907 | Distance: 0.85 km</div>
+          </div>
+          <button class="w-full h-8 bg-primary text-on-primary font-bold uppercase rounded" onclick="window.switchDomain('REVIEW')">GENERATE REPORT →</button>
         </div>
-        <div class="p-2 bg-surface-container rounded border border-outline-variant">
-          <div class="text-success-green font-bold">1. VESSEL_BETA (IMO 9876543)</div>
-          <div class="text-[11px] text-on-surface-variant mt-1">Priority: 0.907 | Distance: 0.85 km</div>
+      `;
+    } else {
+      bdy.innerHTML = `
+        <div class="p-3 border-b border-outline-variant bg-surface-container font-semibold text-on-surface">Vessel Intelligence</div>
+        <div class="p-3 space-y-3 font-data-mono text-xs">
+          <div class="p-2 bg-surface-container rounded border border-outline-variant">
+            <div class="text-[10px] text-outline uppercase">CURRENT TASK</div>
+            <div class="text-warning-amber font-bold text-sm mt-0.5">AIS DATA NOT LOADED</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">No vessel broadcast records attached. Ingest MarineCadastre AIS CSV to compute vessel trajectory correlations.</div>
+          </div>
+          <button class="w-full h-8 bg-surface-variant text-outline font-bold uppercase rounded cursor-not-allowed" disabled>AWAITING AIS INGESTION</button>
         </div>
-        <button class="w-full h-8 bg-primary text-on-primary font-bold uppercase rounded" onclick="window.switchDomain('REVIEW')">GENERATE REPORT →</button>
-      </div>
-    `;
+      `;
+    }
   }
 
   /* ==========================================================================
-     DOMAIN 05: REVIEW BRIEFING WORKSPACE
+     DOMAIN 05: REVIEW BRIEFING WORKSPACE (ZERO-LEAKAGE MATRIX)
      ========================================================================== */
 
   function renderReviewBriefing() {
     const revEl = document.getElementById("sn-review-body");
     if (!revEl) return;
 
-    revEl.innerHTML = `
-      <div class="bg-surface-container-low border border-outline-variant rounded-lg p-6 mb-6">
-        <h1 class="text-xl font-bold text-primary tracking-tight">VARUNA — INCIDENT REVIEW MATRIX</h1>
-        <p class="text-xs text-on-surface-variant mt-1">11-Stage Explainable Evidence Integration & Cryptographic Provenance Manifest</p>
+    const isBench = isBenchmarkCase(state.investigationId);
+    const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
 
-        <div class="mt-4 overflow-x-auto">
-          <table class="w-full text-xs text-left border-collapse font-data-mono">
-            <thead>
-              <tr class="border-b border-outline-variant text-outline bg-surface-container">
-                <th class="p-2.5">STAGE</th>
-                <th class="p-2.5">NAME</th>
-                <th class="p-2.5">ENGINE / METHOD</th>
-                <th class="p-2.5">STATUS</th>
-                <th class="p-2.5">PROVENANCE</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="border-b border-outline-variant/40"><td class="p-2.5">01</td><td class="p-2.5">SAR OBSERVATION</td><td class="p-2.5">Sentinel-1B IW GRDH</td><td class="p-2.5 text-success-green">VALIDATED</td><td class="p-2.5 text-outline">S1B_IW_GRDH_1SDV_20200810...</td></tr>
-              <tr class="border-b border-outline-variant/40"><td class="p-2.5">02</td><td class="p-2.5">DETECTION & TRIAGE</td><td class="p-2.5">Task008B ML Classifier</td><td class="p-2.5 text-success-green">COMPLETE</td><td class="p-2.5 text-outline">C4053 (ML Oil Score: 0.5818)</td></tr>
-              <tr class="border-b border-outline-variant/40"><td class="p-2.5">03</td><td class="p-2.5">HINDCAST TRANSPORT</td><td class="p-2.5">OpenDrift Backward</td><td class="p-2.5 text-success-green">COMPLETE</td><td class="p-2.5 text-outline">Ref Dist: ~24.17 km @ 24h</td></tr>
-              <tr class="border-b border-outline-variant/40"><td class="p-2.5">04</td><td class="p-2.5">FORWARD FORECAST</td><td class="p-2.5">OpenDrift Forward</td><td class="p-2.5 text-primary">LIVE COMPUTE</td><td class="p-2.5 text-outline">Full ERA5/HYCOM/CMEMS Support</td></tr>
-              <tr class="border-b border-outline-variant/40"><td class="p-2.5">05</td><td class="p-2.5">AIS CORRELATION</td><td class="p-2.5">MarineCadastre Engine</td><td class="p-2.5 text-primary">LIVE COMPUTE</td><td class="p-2.5 text-outline">VESSEL_BETA (Priority: 0.907)</td></tr>
-            </tbody>
-          </table>
+    if (isBench) {
+      revEl.innerHTML = `
+        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-6 mb-6">
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <h1 class="text-xl font-bold text-primary tracking-tight">VARUNA — INCIDENT REVIEW MATRIX</h1>
+              <p class="text-xs text-on-surface-variant mt-1">11-Stage Explainable Evidence Integration & Cryptographic Provenance Manifest</p>
+            </div>
+            <span class="px-2.5 py-1 bg-surface-variant border border-warning-amber text-warning-amber text-xs font-data-mono font-bold rounded">VALIDATED BENCHMARK</span>
+          </div>
+
+          <div class="mt-4 overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse font-data-mono">
+              <thead>
+                <tr class="border-b border-outline-variant text-outline bg-surface-container">
+                  <th class="p-2.5">STAGE</th>
+                  <th class="p-2.5">NAME</th>
+                  <th class="p-2.5">ENGINE / METHOD</th>
+                  <th class="p-2.5">STATUS</th>
+                  <th class="p-2.5">PROVENANCE</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">01</td><td class="p-2.5">SAR OBSERVATION</td><td class="p-2.5">Sentinel-1B IW GRDH</td><td class="p-2.5 text-success-green">VALIDATED CACHED RESULT</td><td class="p-2.5 text-outline">S1B_IW_GRDH_1SDV_20200810...</td></tr>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">02</td><td class="p-2.5">DETECTION & TRIAGE</td><td class="p-2.5">Task008B ML Classifier</td><td class="p-2.5 text-success-green">VALIDATED CACHED RESULT</td><td class="p-2.5 text-outline">C4053 (ML Oil Score: 0.5818)</td></tr>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">03</td><td class="p-2.5">HINDCAST TRANSPORT</td><td class="p-2.5">OpenDrift Backward</td><td class="p-2.5 text-success-green">VALIDATED CACHED RESULT</td><td class="p-2.5 text-outline">Ref Dist: ~24.17 km @ 24h</td></tr>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">04</td><td class="p-2.5">FORWARD FORECAST</td><td class="p-2.5">OpenDrift Forward</td><td class="p-2.5 text-primary">LIVE COMPUTE</td><td class="p-2.5 text-outline">Full ERA5/HYCOM/CMEMS Support</td></tr>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">05</td><td class="p-2.5">AIS CORRELATION</td><td class="p-2.5">MarineCadastre Engine</td><td class="p-2.5 text-warning-amber">SYNTHETIC AIS DEMONSTRATION</td><td class="p-2.5 text-outline">HISTORICAL ATTRIBUTION NOT VALID</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      // ZERO-LEAKAGE REVIEW FOR GENERIC CASES
+      revEl.innerHTML = `
+        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-6 mb-6">
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <h1 class="text-xl font-bold text-primary tracking-tight">CASE ${activeCase.case_id} — INCIDENT REVIEW MATRIX</h1>
+              <p class="text-xs text-on-surface-variant mt-1">${activeCase.case_name} | Operational Case Review</p>
+            </div>
+            <span class="px-2.5 py-1 bg-surface-variant border border-outline-variant text-outline text-xs font-data-mono font-bold rounded">INVESTIGATION INCOMPLETE</span>
+          </div>
+
+          <div class="mt-4 overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse font-data-mono">
+              <thead>
+                <tr class="border-b border-outline-variant text-outline bg-surface-container">
+                  <th class="p-2.5">STAGE</th>
+                  <th class="p-2.5">NAME</th>
+                  <th class="p-2.5">STATUS</th>
+                  <th class="p-2.5">DETAILS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">01</td><td class="p-2.5">SAR OBSERVATION</td><td class="p-2.5 text-warning-amber">NO OBSERVATION ATTACHED</td><td class="p-2.5 text-outline">Awaiting Sentinel-1 SAR upload</td></tr>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">02</td><td class="p-2.5">DETECTION & TRIAGE</td><td class="p-2.5 text-outline">OBSERVATION REQUIRED</td><td class="p-2.5 text-outline">Prerequisite stage not satisfied</td></tr>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">03</td><td class="p-2.5">HINDCAST TRANSPORT</td><td class="p-2.5 text-outline">CANDIDATE + FORCING REQUIRED</td><td class="p-2.5 text-outline">Prerequisite stage not satisfied</td></tr>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">04</td><td class="p-2.5">FORWARD FORECAST</td><td class="p-2.5 text-outline">CANDIDATE REQUIRED</td><td class="p-2.5 text-outline">Prerequisite stage not satisfied</td></tr>
+                <tr class="border-b border-outline-variant/40"><td class="p-2.5">05</td><td class="p-2.5">AIS CORRELATION</td><td class="p-2.5 text-outline">AIS DATA NOT LOADED</td><td class="p-2.5 text-outline">No vessel trajectory files ingested</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
   }
 
   /* ==========================================================================
@@ -584,13 +826,34 @@
     const sarBounds = [[-20.750033, 57.09998], [-19.699993, 58.300039]];
     const key = domainKey || state.currentDomain.toLowerCase();
     const currMap = state.maps[key];
-    if (currMap) currMap.fitBounds(sarBounds, { padding: [10, 10], animate: true });
+    if (!currMap) return;
+
+    if (isBenchmarkCase(state.investigationId)) {
+      currMap.fitBounds(sarBounds, { padding: [10, 10], animate: true });
+    } else {
+      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+      if (activeCase && activeCase.aoi_geojson) {
+        try {
+          const l = L.geoJSON(activeCase.aoi_geojson);
+          currMap.fitBounds(l.getBounds(), { padding: [20, 20], animate: true });
+        } catch (e) {}
+      }
+    }
   };
 
   window.setZoomLevel = function (domainKey, level) {
     const key = domainKey || state.currentDomain.toLowerCase();
     const currMap = state.maps[key];
-    if (currMap) currMap.setView([-20.4382, 57.7432], level, { animate: true });
+    if (currMap) {
+      if (isBenchmarkCase(state.investigationId)) {
+        currMap.setView([-20.4382, 57.7432], level, { animate: true });
+      } else {
+        const activeCase = state.cases.find(c => c.case_id === state.investigationId);
+        if (activeCase && activeCase.latitude && activeCase.longitude) {
+          currMap.setView([activeCase.latitude, activeCase.longitude], level, { animate: true });
+        }
+      }
+    }
   };
 
   window.zoomInMap = function (domainKey) {
@@ -606,10 +869,7 @@
   };
 
   window.resetSceneView = function (domainKey) {
-    const sarBounds = [[-20.750033, 57.09998], [-19.699993, 58.300039]];
-    const key = domainKey || state.currentDomain.toLowerCase();
-    const currMap = state.maps[key];
-    if (currMap) currMap.fitBounds(sarBounds, { padding: [10, 10], animate: true });
+    window.fitSceneBounds(domainKey);
   };
 
   function updateStatusBarCoords(lat, lon) {
@@ -620,10 +880,16 @@
 
     if (latEl) latEl.innerText = lat.toFixed(4) + "°";
     if (lonEl) lonEl.innerText = lon.toFixed(4) + "°";
-    if (lyrEl) lyrEl.innerText = `Sigma0_${state.activeSarBand}_db`;
-    if (pixEl) {
-      const pseudoDb = (-12.5 - Math.abs(Math.sin(lat * 10 + lon * 10)) * 14.0).toFixed(2);
-      pixEl.innerText = `${pseudoDb} dB`;
+
+    if (isBenchmarkCase(state.investigationId)) {
+      if (lyrEl) lyrEl.innerText = `Sigma0_${state.activeSarBand}_db`;
+      if (pixEl) {
+        const pseudoDb = (-12.5 - Math.abs(Math.sin(lat * 10 + lon * 10)) * 14.0).toFixed(2);
+        pixEl.innerText = `${pseudoDb} dB`;
+      }
+    } else {
+      if (lyrEl) lyrEl.innerText = "No Raster Layer";
+      if (pixEl) pixEl.innerText = "N/A";
     }
   }
 
@@ -695,6 +961,10 @@
   }
 
   window.runSlickDetection = async function () {
+    if (!isBenchmarkCase(state.investigationId)) {
+      alert("Please upload a SAR GeoTIFF observation file for this generic case to run detection.");
+      return;
+    }
     openJobProgressModal("RUNNING SAR SLICK DETECTION PIPELINE");
     const jobRes = await postEndpoint(`/investigations/${state.investigationId}/detect`);
     if (jobRes && jobRes.job_id) {
@@ -703,6 +973,10 @@
   };
 
   window.runHindcast = async function () {
+    if (!isBenchmarkCase(state.investigationId)) {
+      alert("Advection hindcast requires extracted slick candidates and environmental forcing for this case.");
+      return;
+    }
     openJobProgressModal("RUNNING OPENDRIFT BACKWARD HINDCAST");
     const jobRes = await postEndpoint(`/investigations/${state.investigationId}/reconstruct`, { scenario: state.activeScenario });
     if (jobRes && jobRes.job_id) {
@@ -714,6 +988,10 @@
   };
 
   window.runForecast = async function () {
+    if (!isBenchmarkCase(state.investigationId)) {
+      alert("Forward advection forecast requires confirmed slick candidate geometry.");
+      return;
+    }
     openJobProgressModal("RUNNING OPENDRIFT FORWARD FORECAST");
     const jobRes = await postEndpoint(`/investigations/${state.investigationId}/forecast`, { scenario: state.activeScenario });
     if (jobRes && jobRes.job_id) {
