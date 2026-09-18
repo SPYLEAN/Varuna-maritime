@@ -100,8 +100,57 @@ class AnalystQuestion(BaseModel):
     created_at: str
 
 
+class SatelliteObservation(BaseModel):
+    observation_id: str
+    provider: str = "Copernicus Data Space Ecosystem"
+    collection: str = "sentinel-1-grd"
+    stac_item_id: str
+    platform: Optional[str] = None
+    constellation: Optional[str] = None
+    datetime: Optional[str] = None
+    start_datetime: Optional[str] = None
+    end_datetime: Optional[str] = None
+    instrument_mode: Optional[str] = None
+    polarizations: List[str] = Field(default_factory=list)
+    orbit_state: Optional[str] = None
+    relative_orbit: Optional[int] = None
+    absolute_orbit: Optional[int] = None
+    product_type: Optional[str] = None
+    geometry: Optional[Dict[str, Any]] = None
+    bbox: Optional[List[float]] = None
+    assets: Dict[str, Any] = Field(default_factory=dict)
+    thumbnail_url: Optional[str] = None
+    metadata_url: Optional[str] = None
+    coverage_fraction: Optional[float] = None
+    coverage_percent: Optional[float] = None
+    attached_at: Optional[str] = None
+    provenance: Optional[Dict[str, Any]] = None
+    raw_properties: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SatelliteSearchRequest(BaseModel):
+    start_datetime: str
+    end_datetime: str
+    limit: int = Field(default=20, ge=1, le=100)
+    instrument_mode: Optional[str] = "IW"
+
+
+class SatelliteSearchResponse(BaseModel):
+    case_id: str
+    provider: str = "Copernicus Data Space Ecosystem"
+    collection: str = "sentinel-1-grd"
+    query: Dict[str, Any]
+    count: int
+    results: List[SatelliteObservation]
+
+
+class SatelliteAttachRequest(BaseModel):
+    stac_item_id: str
+
+
 class DataManifest(BaseModel):
     satellite_imagery: List[Any] = Field(default_factory=list)
+    satellite_observations: List[SatelliteObservation] = Field(default_factory=list)
     oil_masks: List[Any] = Field(default_factory=list)
     ais_data: List[Any] = Field(default_factory=list)
     met_ocean_data: List[Any] = Field(default_factory=list)

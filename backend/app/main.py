@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import analysis, cases, evidence, files, investigation
+from .routers import analysis, cases, evidence, files, investigation, satellite
 from .routers.investigation import router as investigation_router, job_router, get_r001_dir
 
 SAMUDRANETRA_VERSION = "0.9.0-rc1"
@@ -25,12 +25,14 @@ app.add_middleware(
 # API v1 Product Namespace (/api/v1/cases, /api/v1/cases/{id}/evidence, etc.)
 app.include_router(cases.router, prefix="/api/v1")
 app.include_router(evidence.router, prefix="/api/v1")
+app.include_router(satellite.router, prefix="/api/v1")
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(files.router, prefix="/api/v1")
 
 # Storage & Component Analysis Routers (Mounted on root /cases for backward compatibility)
 app.include_router(cases.router)
 app.include_router(evidence.router)
+app.include_router(satellite.router)
 app.include_router(analysis.router)
 app.include_router(files.router)
 
