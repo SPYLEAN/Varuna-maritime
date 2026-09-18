@@ -10,16 +10,18 @@ from fastapi.testclient import TestClient
 import pytest
 
 from backend.app.main import app
+from backend.app.routers.investigation import get_r001_dir
 from backend.app.services.investigation_engine import build_unified_investigation_case
 
 client = TestClient(app)
 CASE_ID = "R001_WAKASHIO"
-R001_DIR = Path(r"C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra-Research\R001_WAKASHIO")
+R001_DIR = get_r001_dir()
+OPS_CONSOLE_DIR = Path(__file__).resolve().parents[2] / "ops_console"
 
 
 def test_keyless_basemap_configuration():
     """1. Verify app.js uses keyless ESRI Dark Gray basemap URL."""
-    app_js_path = Path(r"C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra\ops_console\app.js")
+    app_js_path = OPS_CONSOLE_DIR / "app.js"
     assert app_js_path.exists()
     content = app_js_path.read_text(encoding="utf-8")
 
@@ -29,7 +31,7 @@ def test_keyless_basemap_configuration():
 
 def test_five_domain_navigation_structure():
     """2. Verify index.html implements the 5-domain navigation model."""
-    index_html_path = Path(r"C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra\ops_console\index.html")
+    index_html_path = OPS_CONSOLE_DIR / "index.html"
     assert index_html_path.exists()
     content = index_html_path.read_text(encoding="utf-8")
 
@@ -40,7 +42,7 @@ def test_five_domain_navigation_structure():
 
 def test_default_case_state_is_normal():
     """3. Verify default state is NORMAL_CASE without simulated failure banners."""
-    app_js_path = Path(r"C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra\ops_console\app.js")
+    app_js_path = OPS_CONSOLE_DIR / "app.js"
     content = app_js_path.read_text(encoding="utf-8")
 
     assert 'activeEdgeState: "NORMAL_CASE"' in content
