@@ -59,6 +59,16 @@ class CalibratedScene(NamedTuple):
     radiometric_mode: str = RADIOMETRIC_MODE_UNKNOWN
 
 
+class SourceProvenance(BaseModel):
+    """Explicit source provenance metadata carried from acquisition through preprocessing."""
+    model_config = ConfigDict(frozen=True)
+
+    source_stac_item_id: Optional[str] = None
+    source_product_id: Optional[str] = None
+    source_archive_sha256: Optional[str] = None
+    source_archive_path: Optional[str] = None
+
+
 class PreprocessedSceneResult(BaseModel):
     """Provenance and metadata record for VARUNA QUICKLOOK SAR ANALYSIS."""
     model_config = ConfigDict(frozen=True)
@@ -69,6 +79,10 @@ class PreprocessedSceneResult(BaseModel):
     source_input_path: str
     input_sha256: str
     product_id: Optional[str] = None
+    source_stac_item_id: Optional[str] = None
+    source_product_id: Optional[str] = None
+    source_archive_sha256: Optional[str] = None
+    source_archive_path: Optional[str] = None
     raster_dimensions: Tuple[int, int]
     crs: str
     polarization: str = "VV"
@@ -406,7 +420,7 @@ def read_sar_raster(
             RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK,
         ):
             final_mode = tag_mode
-        elif tags.get("PRECALIBRATED", "").lower() in ("true", "1", "yes") or "sigma0" in path.stem.lower():
+        elif tags.get("PRECALIBRATED", "").lower() in ("true", "1", "yes"):
             final_mode = RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
         else:
             final_mode = RADIOMETRIC_MODE_UNKNOWN
@@ -493,6 +507,11 @@ def execute_quicklook_preprocessing(
     db_window: Tuple[float, float] = DEFAULT_DB_WINDOW,
     coastlines_path: Optional[Union[str, Path]] = None,
     process_vh: bool = True,
+    provenance: Optional[Union[SourceProvenance, Any]] = None,
+    source_stac_item_id: Optional[str] = None,
+    source_product_id: Optional[str] = None,
+    source_archive_sha256: Optional[str] = None,
+    source_archive_path: Optional[str] = None,
 ) -> Tuple[PreprocessedSceneResult, CalibratedScene, np.ndarray, np.ndarray]:
     """Execute complete VARUNA QUICKLOOK SAR preprocessing pipeline:
 
@@ -502,13 +521,58 @@ def execute_quicklook_preprocessing(
     start_clock = time.time()
     started_at = datetime.now(timezone.utc).isoformat()
     p_in = Path(source_input_path)
+
+    # Resolve explicit source provenance
+    final_stac_item_id = source_stac_item_id
+    final_product_id = source_product_id
+    final_archive_sha256 = source_archive_sha256
+    final_archive_path = source_archive_path
+
+    if provenance is not None:
+        if hasattr(provenance, "source_stac_item_id") and getattr(provenance, "source_stac_item_id"):
+            final_stac_item_id = final_stac_item_id or getattr(provenance, "source_stac_item_id")
+        elif hasattr(provenance, "stac_item_id") and getattr(provenance, "stac_item_id"):
+            final_stac_item_id = final_stac_item_id or getattr(provenance, "stac_item_id")
+
+        if hasattr(provenance, "source_product_id") and getattr(provenance, "source_product_id"):
+            final_product_id = final_product_id or getattr(provenance, "source_product_id")
+        elif hasattr(provenance, "product_id") and getattr(provenance, "product_id"):
+            final_product_id = final_product_id or getattr(provenance, "product_id")
+
+        if hasattr(provenance, "source_archive_sha256") and getattr(provenance, "source_archive_sha256"):
+            final_archive_sha256 = final_archive_sha256 or getattr(provenance, "source_archive_sha256")
+        elif hasattr(provenance, "sha256") and getattr(provenance, "sha256"):
+            final_archive_sha256 = final_archive_sha256 or getattr(provenance, "sha256")
+
+        if hasattr(provenance, "source_archive_path") and getattr(provenance, "source_archive_path"):
+            final_archive_path = final_archive_path or getattr(provenance, "source_archive_path")
+        elif hasattr(provenance, "archive_path") and getattr(provenance, "archive_path"):
+            final_archive_path = final_archive_path or getattr(provenance, "archive_path")
+
+        if isinstance(provenance, dict):
+            final_stac_item_id = final_stac_item_id or provenance.get("source_stac_item_id") or provenance.get("stac_item_id")
+            final_product_id = final_product_id or provenance.get("source_product_id") or provenance.get("product_id")
+            final_archive_sha256 = final_archive_sha256 or provenance.get("source_archive_sha256") or provenance.get("sha256")
+            final_archive_path = final_archive_path or provenance.get("source_archive_path") or provenance.get("archive_path")
+
+    if not final_product_id:
+        final_product_id = p_in.stem
+
+    # Input hash:
+    # Preprocessing cannot recover original archive SHA256 by hashing source_input_path
+    # when receiving an extracted SAFE directory. Do not hash extracted directory.
     input_sha256 = ""
-    if p_in.is_file():
+    if final_archive_sha256:
+        input_sha256 = final_archive_sha256
+    elif p_in.is_file():
         h = hashlib.sha256()
         with p_in.open("rb") as f:
             while chunk := f.read(65536):
                 h.update(chunk)
         input_sha256 = h.hexdigest()
+        final_archive_sha256 = input_sha256
+        if not final_archive_path:
+            final_archive_path = str(p_in)
 
     proc_dir = Path(output_base_dir) / case_id / "observations" / observation_id / "processed"
     proc_dir.mkdir(parents=True, exist_ok=True)
@@ -568,8 +632,9 @@ def execute_quicklook_preprocessing(
                 CRS=str(scene.crs),
                 TRANSFORM=str(list(scene.transform)[:6]),
                 DIMENSIONS=f"{h_dim}x{w_dim}",
-                SOURCE_PRODUCT_ID=p_in.stem,
-                SOURCE_ARCHIVE_SHA256=input_sha256,
+                SOURCE_STAC_ITEM_ID=str(final_stac_item_id or ""),
+                SOURCE_PRODUCT_ID=str(final_product_id or ""),
+                SOURCE_ARCHIVE_SHA256=str(final_archive_sha256 or ""),
                 PROCESSING_TIMESTAMP=started_at,
                 FILTER_METHOD="LEE_SPECKLE_MMSE",
                 FILTER_SIZE=str(filter_size),
@@ -624,8 +689,9 @@ def execute_quicklook_preprocessing(
                         CRS=str(vh_scene.crs),
                         TRANSFORM=str(list(vh_scene.transform)[:6]),
                         DIMENSIONS=f"{h_dim}x{w_dim}",
-                        SOURCE_PRODUCT_ID=p_in.stem,
-                        SOURCE_ARCHIVE_SHA256=input_sha256,
+                        SOURCE_STAC_ITEM_ID=str(final_stac_item_id or ""),
+                        SOURCE_PRODUCT_ID=str(final_product_id or ""),
+                        SOURCE_ARCHIVE_SHA256=str(final_archive_sha256 or ""),
                         PROCESSING_TIMESTAMP=started_at,
                         FILTER_METHOD="LEE_SPECKLE_MMSE",
                         FILTER_SIZE=str(filter_size),
@@ -652,7 +718,11 @@ def execute_quicklook_preprocessing(
             observation_id=observation_id,
             source_input_path=str(source_input_path),
             input_sha256=input_sha256,
-            product_id=p_in.stem,
+            product_id=final_product_id,
+            source_stac_item_id=final_stac_item_id,
+            source_product_id=final_product_id,
+            source_archive_sha256=final_archive_sha256,
+            source_archive_path=final_archive_path,
             raster_dimensions=(h_dim, w_dim),
             crs=str(scene.crs),
             polarization=scene.polarisation,
@@ -682,6 +752,11 @@ def execute_quicklook_preprocessing(
             observation_id=observation_id,
             source_input_path=str(source_input_path),
             input_sha256=input_sha256,
+            product_id=final_product_id,
+            source_stac_item_id=final_stac_item_id,
+            source_product_id=final_product_id,
+            source_archive_sha256=final_archive_sha256,
+            source_archive_path=final_archive_path,
             raster_dimensions=(0, 0),
             crs="",
             polarization=polarisation.upper(),
@@ -699,3 +774,4 @@ def execute_quicklook_preprocessing(
             error_message=str(exc),
         )
         raise exc
+

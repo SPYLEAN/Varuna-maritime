@@ -21,6 +21,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 import rasterio
+import zipfile
 from affine import Affine
 from rasterio.crs import CRS
 from shapely.geometry import box
@@ -28,6 +29,7 @@ from shapely.geometry import box
 from backend.app.services.sentinel_catalog import get_sentinel1_item_by_id
 from backend.app.services.sentinel_download import (
     CdseCredentialsMissingError,
+    ProductAcquisitionResult,
     acquire_observation_product,
     compute_file_sha256,
     get_access_token,
@@ -41,6 +43,7 @@ from backend.app.services.sar_quicklook import (
     RADIOMETRIC_MODE_SIGMA0_LUT,
     RADIOMETRIC_MODE_UNKNOWN,
     GeoreferenceUnavailableError,
+    SourceProvenance,
     _georef_from_dataarray,
     CalibratedScene,
     calibrate_safe,
@@ -279,6 +282,38 @@ class TestQuicklookCalibrationRouting:
         # Value-magnitude guessing (data**2 if max > 100) must NOT be applied
         assert np.isclose(scene.sigma0[0, 0], 150.0)
 
+    def test_sigma0_filename_does_not_imply_precalibrated(self, tmp_path):
+        """A generic raster filename containing 'sigma0' must NOT imply PROVIDER_PRECALIBRATED."""
+        sigma0_tif = tmp_path / "generic_scene_sigma0.tif"
+        with rasterio.open(
+            sigma0_tif, "w", driver="GTiff", height=32, width=32, count=1,
+            dtype="float32", crs="EPSG:4326", transform=Affine.identity()
+        ) as dst:
+            dst.write(np.ones((32, 32), dtype="float32") * 0.05, 1)
+
+        scene = read_sar_raster(sigma0_tif)
+        # Must be UNKNOWN, not PROVIDER_PRECALIBRATED
+        assert scene.radiometric_mode == RADIOMETRIC_MODE_UNKNOWN
+        assert scene.radiometric_mode != RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
+
+        # Explicit caller parameter overrides default
+        explicit_scene = read_sar_raster(
+            sigma0_tif, radiometric_mode=RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
+        )
+        assert explicit_scene.radiometric_mode == RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
+
+        # Trustworthy GeoTIFF metadata declaring calibration is respected
+        tagged_tif = tmp_path / "generic_scene_sigma0_tagged.tif"
+        with rasterio.open(
+            tagged_tif, "w", driver="GTiff", height=32, width=32, count=1,
+            dtype="float32", crs="EPSG:4326", transform=Affine.identity()
+        ) as dst:
+            dst.write(np.ones((32, 32), dtype="float32") * 0.05, 1)
+            dst.update_tags(RADIOMETRIC_MODE=RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED)
+
+        tagged_scene = read_sar_raster(tagged_tif)
+        assert tagged_scene.radiometric_mode == RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
+
     def test_verify_dualpol_alignment_checks(self):
         """Spatial alignment checks must pass for matching rasters and fail on dimension/CRS mismatch."""
         s1 = CalibratedScene(
@@ -353,6 +388,170 @@ class TestQuicklookCalibrationRouting:
             tags = ds.tags()
             assert tags.get("RADIOMETRIC_MODE") == RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK
             assert tags.get("RADIOMETRIC_MODE") != RADIOMETRIC_MODE_SIGMA0_LUT
+
+    def test_provenance_survives_acquisition_to_preprocessing_and_dualpol_tags(self, tmp_path):
+        """Verify STAC item ID, product ID, archive SHA256 survive into PreprocessedSceneResult and both VV/VH tags."""
+        safe_dir = tmp_path / "S1A_IW_GRDH_TEST.SAFE"
+        meas_dir = safe_dir / "measurement"
+        meas_dir.mkdir(parents=True)
+
+        vv_tif = meas_dir / "s1a-iw-grd-vv-test.tiff"
+        vh_tif = meas_dir / "s1a-iw-grd-vh-test.tiff"
+
+        transform = Affine.translation(65.0, 20.0) * Affine.scale(0.001, -0.001)
+        crs = CRS.from_epsg(4326)
+
+        for p_tif in (vv_tif, vh_tif):
+            with rasterio.open(
+                p_tif, "w", driver="GTiff", height=32, width=32, count=1,
+                dtype="uint16", crs=crs, transform=transform
+            ) as dst:
+                dst.write(np.ones((32, 32), dtype="uint16") * 300, 1)
+
+        # Mock an archive file that produced this SAFE
+        archive_file = tmp_path / "S1A_IW_GRDH_TEST.zip"
+        archive_file.write_bytes(b"Simulated ZIP archive content for SHA256 verification")
+        expected_sha256 = compute_file_sha256(archive_file)
+
+        acq_result = ProductAcquisitionResult(
+            case_id="case_prov_test",
+            observation_id="obs_prov_test",
+            stac_item_id="S1A_IW_GRDH_1SDV_20240914T011113_STAC_ITEM",
+            product_name="S1A_IW_GRDH_TEST",
+            product_id="80587464-dae0-48af-89f1-testproductid",
+            download_url="https://download.dataspace.copernicus.eu/odata/v1/Products(test)",
+            archive_path=str(archive_file),
+            safe_dir_path=str(safe_dir),
+            bytes_downloaded=len(archive_file.read_bytes()),
+            sha256=expected_sha256,
+            manifest_valid=True,
+            vv_measurement_path=str(vv_tif),
+            vh_measurement_path=str(vh_tif),
+            started_at="2026-09-19T00:00:00Z",
+            completed_at="2026-09-19T00:01:00Z",
+            status="SUCCESS",
+        )
+
+        prep_res, scene, filtered, sigma0_db = execute_quicklook_preprocessing(
+            case_id="case_prov_test",
+            observation_id="obs_prov_test",
+            source_input_path=safe_dir,
+            provenance=acq_result,
+            output_base_dir=tmp_path,
+            process_vh=True,
+        )
+
+        assert prep_res.status == "SUCCESS"
+        # STAC item ID survives
+        assert prep_res.source_stac_item_id == "S1A_IW_GRDH_1SDV_20240914T011113_STAC_ITEM"
+        # Product ID survives
+        assert prep_res.source_product_id == "80587464-dae0-48af-89f1-testproductid"
+        # Archive SHA256 survives (and was NOT computed by hashing the extracted SAFE dir)
+        assert prep_res.source_archive_sha256 == expected_sha256
+        assert prep_res.input_sha256 == expected_sha256
+        assert prep_res.source_archive_path == str(archive_file)
+
+        # Check VV GeoTIFF tags
+        assert Path(prep_res.processed_db_geotiff_path).exists()
+        with rasterio.open(prep_res.processed_db_geotiff_path) as vv_ds:
+            vv_tags = vv_ds.tags()
+            assert vv_tags.get("SOURCE_STAC_ITEM_ID") == "S1A_IW_GRDH_1SDV_20240914T011113_STAC_ITEM"
+            assert vv_tags.get("SOURCE_PRODUCT_ID") == "80587464-dae0-48af-89f1-testproductid"
+            assert vv_tags.get("SOURCE_ARCHIVE_SHA256") == expected_sha256
+
+        # Check VH GeoTIFF tags and verify identical source provenance
+        assert prep_res.vh_processed is True
+        assert Path(prep_res.vh_processed_db_geotiff_path).exists()
+        with rasterio.open(prep_res.vh_processed_db_geotiff_path) as vh_ds:
+            vh_tags = vh_ds.tags()
+            assert vh_tags.get("SOURCE_STAC_ITEM_ID") == vv_tags.get("SOURCE_STAC_ITEM_ID")
+            assert vh_tags.get("SOURCE_PRODUCT_ID") == vv_tags.get("SOURCE_PRODUCT_ID")
+            assert vh_tags.get("SOURCE_ARCHIVE_SHA256") == vv_tags.get("SOURCE_ARCHIVE_SHA256")
+
+    def test_cdse_cache_safe_reuse_and_validation(self, tmp_path, monkeypatch):
+        """Cache safely reuses valid archive without credentials, validating size, zip and SHA256."""
+        cache_dir = tmp_path / "cache" / "cdse"
+        cache_dir.mkdir(parents=True)
+        monkeypatch.setenv("VARUNA_CDSE_CACHE_DIR", str(cache_dir))
+
+        product_name = "S1A_IW_GRDH_1SDV_20240914T011113_20240914T011139_055654_06CB9B_D44A"
+        cached_zip_path = cache_dir / f"{product_name}.zip"
+
+        safe_name = f"{product_name}.SAFE"
+        with zipfile.ZipFile(cached_zip_path, "w") as zf:
+            zf.writestr(f"{safe_name}/manifest.safe", "<xfdu:XFDU>manifest</xfdu:XFDU>")
+            zf.writestr(f"{safe_name}/measurement/s1a-iw-grd-vv.tiff", "mock_vv_data")
+            zf.writestr(f"{safe_name}/measurement/s1a-iw-grd-vh.tiff", "mock_vh_data")
+
+        expected_hash = compute_file_sha256(cached_zip_path)
+        assert cached_zip_path.exists()
+        assert cached_zip_path.stat().st_size > 0
+        assert zipfile.is_zipfile(cached_zip_path)
+
+        obs_item = {
+            "stac_item_id": f"{product_name}_COG",
+            "id": f"{product_name}_COG",
+            "properties": {"sentinel:product_id": "mock_id_123"},
+        }
+
+        # Clear credentials to prove network / auth is never called when valid cache exists
+        with patch("backend.app.services.sentinel_download.CDSE_USER", ""):
+            with patch("backend.app.services.sentinel_download.CDSE_PASS", ""):
+                acq_result = acquire_observation_product(
+                    case_id="case_cache_valid",
+                    observation_id="obs_cache_valid",
+                    observation_data=obs_item,
+                    base_dir=tmp_path / "cases",
+                    cache_dir=cache_dir,
+                )
+
+        assert acq_result.status == "SUCCESS"
+        assert acq_result.sha256 == expected_hash
+        assert Path(acq_result.archive_path).exists()
+        assert acq_result.manifest_valid is True
+        assert acq_result.safe_dir_path is not None
+        assert Path(acq_result.safe_dir_path).exists()
+
+    def test_cdse_cache_rejects_corrupt_or_incomplete_archive(self, tmp_path, monkeypatch):
+        """Corrupt or incomplete cache archives are never treated as valid cache."""
+        cache_dir = tmp_path / "cache" / "cdse"
+        cache_dir.mkdir(parents=True)
+        monkeypatch.setenv("VARUNA_CDSE_CACHE_DIR", str(cache_dir))
+
+        product_name = "S1A_IW_GRDH_1SDV_20240914T011113_20240914T011139_055654_06CB9B_D44A"
+        cached_zip_path = cache_dir / f"{product_name}.zip"
+
+        obs_item = {
+            "stac_item_id": f"{product_name}_COG",
+            "id": f"{product_name}_COG",
+        }
+
+        # Case 1: Empty file (size 0)
+        cached_zip_path.write_bytes(b"")
+
+        with patch("backend.app.services.sentinel_download.CDSE_USER", ""):
+            with patch("backend.app.services.sentinel_download.CDSE_PASS", ""):
+                res_empty = acquire_observation_product(
+                    case_id="case_cache_empty",
+                    observation_id="obs_cache_empty",
+                    observation_data=obs_item,
+                    base_dir=tmp_path / "cases",
+                    cache_dir=cache_dir,
+                )
+                assert res_empty.status == "CREDENTIALS_MISSING"
+
+        # Case 2: Corrupt ZIP file
+        cached_zip_path.write_bytes(b"PK\x03\x04corrupted_payload_not_a_valid_archive")
+        with patch("backend.app.services.sentinel_download.CDSE_USER", ""):
+            with patch("backend.app.services.sentinel_download.CDSE_PASS", ""):
+                res_corrupt = acquire_observation_product(
+                    case_id="case_cache_corrupt",
+                    observation_id="obs_cache_corrupt",
+                    observation_data=obs_item,
+                    base_dir=tmp_path / "cases",
+                    cache_dir=cache_dir,
+                )
+                assert res_corrupt.status == "CREDENTIALS_MISSING"
 
 
 class TestLiveObservationChain:
@@ -463,10 +662,14 @@ class TestLiveObservationChain:
             case_id="case_live_download",
             observation_id="obs_live_001",
             source_input_path=acq_result.safe_dir_path,
+            provenance=acq_result,
             output_base_dir=tmp_path,
         )
 
         assert prep_res.status == "SUCCESS"
+        assert prep_res.source_stac_item_id == acq_result.stac_item_id
+        assert prep_res.source_product_id == acq_result.product_id
+        assert prep_res.source_archive_sha256 == acq_result.sha256
         assert prep_res.radiometric_mode in (
             RADIOMETRIC_MODE_SIGMA0_LUT,
             RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK,

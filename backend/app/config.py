@@ -53,6 +53,10 @@ CDSE_PASS: str = (
     or ""
 ).strip()
 
+VARUNA_CDSE_CACHE_DIR: str = os.environ.get(
+    "VARUNA_CDSE_CACHE_DIR", "./data/cache/cdse"
+).strip()
+
 
 def mask_secret(value: Optional[str]) -> str:
     """Safely mask sensitive strings for logs without revealing content."""
@@ -73,6 +77,7 @@ def get_sanitized_config() -> dict[str, str | int]:
         "VARUNA_DATA_ROOT": VARUNA_DATA_ROOT,
         "VARUNA_RESEARCH_ROOT": VARUNA_RESEARCH_ROOT,
         "VARUNA_CDSE_STAC_URL": VARUNA_CDSE_STAC_URL,
+        "VARUNA_CDSE_CACHE_DIR": VARUNA_CDSE_CACHE_DIR,
         "CDSE_USER": mask_secret(CDSE_USER),
         "CDSE_PASS": mask_secret(CDSE_PASS),
     }

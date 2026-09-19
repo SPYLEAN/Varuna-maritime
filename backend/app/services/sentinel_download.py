@@ -29,7 +29,7 @@ from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
-from backend.app.config import CDSE_USER, CDSE_PASS
+from backend.app.config import CDSE_USER, CDSE_PASS, VARUNA_CDSE_CACHE_DIR
 
 # CDSE Keycloak and OData endpoints
 TOKEN_URL: str = (
@@ -106,6 +106,30 @@ class ProductAcquisitionResult(BaseModel):
     completed_at: str
     status: str
     error_message: Optional[str] = None
+
+    @property
+    def source_stac_item_id(self) -> str:
+        return self.stac_item_id
+
+    @property
+    def source_product_id(self) -> str:
+        return self.product_id
+
+    @property
+    def source_archive_sha256(self) -> str:
+        return self.sha256
+
+    @property
+    def source_archive_path(self) -> Optional[str]:
+        return self.archive_path
+
+    def to_provenance(self) -> Dict[str, Optional[str]]:
+        return {
+            "source_stac_item_id": self.stac_item_id,
+            "source_product_id": self.product_id,
+            "source_archive_sha256": self.sha256,
+            "source_archive_path": self.archive_path,
+        }
 
 
 
@@ -345,6 +369,7 @@ def acquire_observation_product(
     observation_data: Dict[str, Any],
     *,
     base_dir: Union[Path, str] = "data/cases",
+    cache_dir: Optional[Union[Path, str]] = None,
     token: Optional[str] = None,
     extract_safe: bool = True,
     session: Optional[HttpSession] = None,
@@ -354,6 +379,7 @@ def acquire_observation_product(
 
     Attached Observation -> Resolve Product -> Stream to disk -> Compute SHA-256 -> Unzip SAFE.
     Destination contract: data/cases/<case_id>/observations/<observation_id>/raw/
+    Supports safe reuse of an already downloaded exact product via VARUNA_CDSE_CACHE_DIR.
     """
     started_at = datetime.now(timezone.utc).isoformat()
     raw_dir = Path(base_dir) / case_id / "observations" / observation_id / "raw"
@@ -363,6 +389,102 @@ def acquire_observation_product(
     print("[CDSE] resolving Sentinel product", flush=True)
     logger.info(f"[CDSE] resolving Sentinel product for {stac_id}")
     product_target = resolve_product_from_observation(observation_data)
+
+    # 1. Check optional CDSE product cache for safe reuse
+    raw_cache_dir = cache_dir or os.environ.get("VARUNA_CDSE_CACHE_DIR", VARUNA_CDSE_CACHE_DIR)
+    active_cache_dir = Path(raw_cache_dir)
+    cached_archive_name = product_target.name if product_target.name.endswith(".zip") else f"{product_target.name}.zip"
+    cached_file = active_cache_dir / cached_archive_name
+
+    reused_cache = False
+    if cached_file.exists():
+        # Before reuse:
+        # - file must exist
+        # - size > 0
+        # - ZIP must validate
+        # - compute SHA256
+        # Never treat a corrupt or incomplete archive as valid cache.
+        if cached_file.is_file() and cached_file.stat().st_size > 0:
+            if zipfile.is_zipfile(cached_file):
+                try:
+                    with zipfile.ZipFile(cached_file, "r") as zf:
+                        corrupt_member = zf.testzip()
+                    if corrupt_member is None:
+                        reused_cache = True
+                        print(f"[CACHE] Validated cache hit: {cached_file}", flush=True)
+                        logger.info(f"[CACHE] Validated cache hit: {cached_file}")
+                    else:
+                        logger.warning(
+                            f"[CACHE] Corrupted member '{corrupt_member}' in cached archive {cached_file}; ignoring cache."
+                        )
+                except Exception as zip_err:
+                    logger.warning(f"[CACHE] Zip validation error for {cached_file}: {zip_err}; ignoring cache.")
+            else:
+                logger.warning(f"[CACHE] Cached file {cached_file} is not a valid zip; ignoring cache.")
+        else:
+            logger.warning(f"[CACHE] Cached file {cached_file} is empty or not a regular file; ignoring cache.")
+
+    if reused_cache:
+        try:
+            import shutil
+            dest_archive = raw_dir / cached_archive_name
+            if dest_archive.resolve() != cached_file.resolve():
+                shutil.copy2(cached_file, dest_archive)
+            archive_path = dest_archive
+            bytes_downloaded = archive_path.stat().st_size
+            print("[HASH] computing SHA256", flush=True)
+            logger.info(f"[HASH] computing SHA256 for {archive_path.name}")
+            sha256_hash = compute_file_sha256(archive_path)
+            print("[HASH] complete", flush=True)
+            logger.info(f"[HASH] complete: {sha256_hash}")
+
+            safe_dir_path = None
+            manifest_valid = False
+            vv_path = None
+            vh_path = None
+
+            if extract_safe and zipfile.is_zipfile(archive_path):
+                print("[SAFE] extracting", flush=True)
+                logger.info(f"[SAFE] extracting archive {archive_path.name}")
+                with zipfile.ZipFile(archive_path, "r") as zf:
+                    zf.extractall(raw_dir)
+                safe_dirs = list(raw_dir.glob("*.SAFE"))
+                if safe_dirs:
+                    safe_p = safe_dirs[0]
+                    safe_dir_path = str(safe_p)
+                    manifest_file = safe_p / "manifest.safe"
+                    if manifest_file.exists() and manifest_file.stat().st_size > 0:
+                        manifest_valid = True
+                        print("[SAFE] manifest.safe verified", flush=True)
+                        logger.info("[SAFE] manifest.safe verified")
+                    vv_files = list(safe_p.glob("measurement/*-vv-*")) or list(safe_p.glob("*-vv-*"))
+                    if vv_files:
+                        vv_path = str(vv_files[0])
+                    vh_files = list(safe_p.glob("measurement/*-vh-*")) or list(safe_p.glob("*-vh-*"))
+                    if vh_files:
+                        vh_path = str(vh_files[0])
+
+            completed_at = datetime.now(timezone.utc).isoformat()
+            return ProductAcquisitionResult(
+                case_id=case_id,
+                observation_id=observation_id,
+                stac_item_id=stac_id,
+                product_name=product_target.name,
+                product_id=product_target.id,
+                download_url=product_target.download_url,
+                archive_path=str(archive_path),
+                safe_dir_path=safe_dir_path,
+                bytes_downloaded=bytes_downloaded,
+                sha256=sha256_hash,
+                manifest_valid=manifest_valid,
+                vv_measurement_path=vv_path,
+                vh_measurement_path=vh_path,
+                started_at=started_at,
+                completed_at=completed_at,
+                status="SUCCESS",
+            )
+        except Exception as reuse_err:
+            logger.warning(f"[CACHE] Error reusing cache: {reuse_err}; falling back to download.")
 
     # Obtain token if not provided
     try:
@@ -411,6 +533,16 @@ def acquire_observation_product(
         sha256_hash = compute_file_sha256(archive_path)
         print("[HASH] complete", flush=True)
         logger.info(f"[HASH] complete: {sha256_hash}")
+
+        # Store valid archive in cache for safe reuse if active_cache_dir is configured
+        try:
+            active_cache_dir.mkdir(parents=True, exist_ok=True)
+            if cached_file.resolve() != archive_path.resolve():
+                import shutil
+                shutil.copy2(archive_path, cached_file)
+                logger.info(f"[CACHE] Stored valid archive to cache: {cached_file}")
+        except Exception as cache_err:
+            logger.warning(f"[CACHE] Failed to save archive to cache: {cache_err}")
 
         safe_dir_path = None
         manifest_valid = False

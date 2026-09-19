@@ -24,6 +24,10 @@ data/processed/*
 !data/processed/.gitkeep
 !data/README.md
 
+# CDSE Cache
+data/cache/*
+!data/cache/.gitkeep
+
 # Model checkpoints
 *.pth
 *.pt
