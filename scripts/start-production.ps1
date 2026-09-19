@@ -1,8 +1,8 @@
-# SAMUDRANETRA — Production Local Startup Script
+# VARUNA — Production Local Startup Script
 
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host " SAMUDRANETRA — Production Local Launcher" -ForegroundColor Cyan
-Write-Host " Version: 0.9.0-rc1" -ForegroundColor Cyan
+Write-Host " VARUNA — Production Local Launcher" -ForegroundColor Cyan
+Write-Host " Version: 2.0.0-rc1" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -33,7 +33,7 @@ $FrontendJob = Start-Job -ScriptBlock {
 
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host " SAMUDRANETRA IS NOW RUNNING LOCALLY" -ForegroundColor Cyan
+Write-Host " VARUNA IS NOW RUNNING LOCALLY" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host " Ops Console Workstation : http://localhost:8080" -ForegroundColor Yellow
 Write-Host " FastAPI Backend Base   : http://localhost:8000" -ForegroundColor Yellow

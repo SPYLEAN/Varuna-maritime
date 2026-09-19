@@ -5,12 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import analysis, cases, evidence, files, investigation, satellite
 from .routers.investigation import router as investigation_router, job_router, get_r001_dir
 
-SAMUDRANETRA_VERSION = "0.9.0-rc1"
+from backend.app.config import VARUNA_VERSION
+
+# Backward compatibility alias
+SAMUDRANETRA_VERSION = VARUNA_VERSION
 
 app = FastAPI(
-    title="SAMUDRANETRA API",
+    title="VARUNA API",
     description="Maritime Pollution Intelligence System — Operational Investigation & Evidence Engine",
-    version=SAMUDRANETRA_VERSION,
+    version=VARUNA_VERSION,
 )
 
 # CORS Security Baseline
@@ -48,8 +51,8 @@ def health():
     case_data_ready = (r_dir / "07_results").exists()
     return {
         "status": "healthy",
-        "service": "samudranetra-backend",
-        "version": SAMUDRANETRA_VERSION,
+        "service": "varuna-backend",
+        "version": VARUNA_VERSION,
         "api": True,
         "case_data": case_data_ready,
     }
@@ -63,10 +66,10 @@ def ready():
         "status": "READY" if case_data_ready else "DEGRADED",
         "service_running": True,
         "case_data_ready": case_data_ready,
-        "version": SAMUDRANETRA_VERSION,
+        "version": VARUNA_VERSION,
     }
 
 
 @app.get("/version")
 def get_version():
-    return {"version": SAMUDRANETRA_VERSION, "release_stage": "PRODUCTION_CANDIDATE"}
+    return {"version": VARUNA_VERSION, "release_stage": "PRODUCTION_CANDIDATE"}

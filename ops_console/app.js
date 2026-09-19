@@ -4,7 +4,7 @@
    ========================================================================== */
 
 (function () {
-  const API_ORIGIN = window.SAMUDRANETRA_API_BASE_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : window.location.origin);
+  const API_ORIGIN = window.VARUNA_API_BASE_URL || window.SAMUDRANETRA_API_BASE_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : window.location.origin);
   const PRODUCT_API_BASE = `${API_ORIGIN}/api/v1`;
   const BENCHMARK_API_BASE = `${API_ORIGIN}/api/investigations`;
   const API_BASE = `${API_ORIGIN}/api`;

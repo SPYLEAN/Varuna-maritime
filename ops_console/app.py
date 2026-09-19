@@ -4,16 +4,19 @@ import requests
 import streamlit as st
 
 # Configure API URL from environment variable (defaulting to local FastAPI server)
-API_URL = os.environ.get("SAMUDRANETRA_API_URL", "http://127.0.0.1:8000").rstrip("/")
+API_URL = (
+    os.environ.get("VARUNA_API_URL")
+    or os.environ.get("SAMUDRANETRA_API_URL", "http://127.0.0.1:8000")
+).rstrip("/")
 
 st.set_page_config(
-    page_title="SAMUDRANETRA — Operations Console",
+    page_title="VARUNA — Operations Console",
     page_icon="🌊",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("🌊 SAMUDRANETRA Operations Console")
+st.title("🌊 VARUNA Operations Console")
 st.caption("Maritime Pollution Intelligence System — Internal Operations & Verification Console")
 
 # Helper function to query FastAPI backend
@@ -124,7 +127,7 @@ tabs = st.tabs([
 # ----------------------------------------------------
 with tabs[0]:
     st.header("Create New Incident Case")
-    st.markdown("Register a new maritime pollution incident or benchmark SAR pass in SamudraNetra.")
+    st.markdown("Register a new maritime pollution incident or benchmark SAR pass in VARUNA.")
     
     with st.form("create_case_form"):
         c_name = st.text_input("Case Name *", placeholder="e.g. Mumbai Offshore Slick Pass")
@@ -660,7 +663,7 @@ with tabs[6]:
 # TAB 8: SYSTEM MODULE STATUS TRACKER
 # ----------------------------------------------------
 with tabs[7]:
-    st.header("SamudraNetra Module Status Tracker")
+    st.header("VARUNA Module Status Tracker")
     if not selected_case:
         st.warning("Please select a case from the sidebar.")
     else:

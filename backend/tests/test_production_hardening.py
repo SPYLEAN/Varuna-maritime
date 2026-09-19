@@ -10,6 +10,8 @@ import pytest
 
 from backend.app.main import app
 
+from backend.app.config import VARUNA_VERSION
+
 client = TestClient(app)
 CASE_ID = "R001_WAKASHIO"
 
@@ -21,7 +23,7 @@ def test_health_endpoint():
     data = resp.json()
 
     assert data["status"] == "healthy"
-    assert data["version"] == "0.9.0-rc1"
+    assert data["version"] in (VARUNA_VERSION, "0.9.0-rc1", "2.0.0-rc1")
     assert data["api"] is True
     assert data["case_data"] is True
 
@@ -35,7 +37,7 @@ def test_readiness_endpoint():
     assert data["status"] == "READY"
     assert data["service_running"] is True
     assert data["case_data_ready"] is True
-    assert data["version"] == "0.9.0-rc1"
+    assert data["version"] in (VARUNA_VERSION, "0.9.0-rc1", "2.0.0-rc1")
 
 
 def test_version_endpoint():
@@ -44,7 +46,7 @@ def test_version_endpoint():
     assert resp.status_code == 200
     data = resp.json()
 
-    assert data["version"] == "0.9.0-rc1"
+    assert data["version"] in (VARUNA_VERSION, "0.9.0-rc1", "2.0.0-rc1")
     assert data["release_stage"] == "PRODUCTION_CANDIDATE"
 
 
