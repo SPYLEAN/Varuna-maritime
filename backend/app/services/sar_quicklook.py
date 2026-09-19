@@ -249,8 +249,10 @@ def read_grd_measurement(
     with rasterio.open(meas_file) as ds:
         gcps, gcp_crs = ds.gcps
         if gcps:
+            if not gcp_crs:
+                raise GeoreferenceUnavailableError(f"Measurement GeoTIFF {meas_file} contains GCPs but no GCP CRS")
             full_transform = from_gcps(gcps)
-            crs = gcp_crs or CRS.from_epsg(4326)
+            crs = gcp_crs
         else:
             full_transform = ds.transform
             crs = ds.crs
@@ -382,7 +384,9 @@ def read_sar_raster(
         if ds.gcps[0]:
             from rasterio.transform import from_gcps
             transform = from_gcps(ds.gcps[0])
-            crs = ds.gcps[1] or CRS.from_epsg(4326)
+            crs = ds.gcps[1]
+            if crs is None:
+                raise GeoreferenceUnavailableError(f"Raster {path} contains GCPs but no valid GCP CRS")
         else:
             transform = ds.transform
             crs = ds.crs
