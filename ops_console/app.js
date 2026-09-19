@@ -41,16 +41,45 @@
     ]
   };
 
+  // Canonical Operational North Sea Incident Definition
+  const VARUNA_NORTH_SEA_RECORD = {
+    case_id: "VARUNA-CASE-2024-0410-NS01",
+    case_name: "North Sea Operational Maritime Pollution Incident",
+    location: "53.50° N, 02.50° E (North Sea Corridor)",
+    region: "North Sea Offshore Shipping Corridor",
+    latitude: 53.5,
+    longitude: 2.5,
+    mode: "Operational Oil Spill",
+    stage: "Response Active",
+    status: "ACTIVE INCIDENT",
+    last_updated: "2026-09-19 15:45 UTC",
+    is_benchmark: false,
+    observation_status: "VALIDATED (SYNTHETIC_DEMO)",
+    detection_status: "COMPLETE",
+    selected_candidate: "C4053",
+    hindcast_status: "COMPLETE",
+    forecast_status: "COMPLETE",
+    ais_status: "SYNTHETIC_DEMO",
+    review_status: "READY",
+    activity: [
+      { time: "2024-04-10 06:23 UTC", text: "Dual-polarization SAR backscatter depression observed (11.2 dB VV damping)" },
+      { time: "2024-04-10 07:10 UTC", text: "SmallUNet segmentation qualified: 1.24 km² surface anomaly (PHYSICS_ELIGIBLE)" },
+      { time: "2024-04-10 08:00 UTC", text: "Forward forecast advection computed: 068° ENE drift toward Coastal Wetland Zone A" },
+      { time: "2024-04-10 08:30 UTC", text: "Marine response window qualified: 08h 42m to shoreline buffer" }
+    ]
+  };
+
   // Normalized Enterprise Case Registry State
   const state = {
-    activeModule: "OPERATIONS", // 'OPERATIONS', 'CASES', 'SATELLITE', 'ANALYSIS', 'PHYSICS', 'VESSEL', 'REPORTS'
-    currentDomain: "HOME",      // 'HOME', 'CASES', 'OVERVIEW', 'OBSERVE', 'ANALYZE', 'RECONSTRUCT', 'ATTRIBUTE', 'REVIEW', 'ACTIVITY'
-    investigationId: "R001_WAKASHIO",
+    activeModule: "OPERATIONS",
+    currentDomain: "OVERVIEW", // SCREEN 1: COMMAND CENTER AS DEFAULT LANDING
+    investigationId: "VARUNA-CASE-2024-0410-NS01",
     activeEdgeState: "NORMAL_CASE",
     isGuidedMode: true,
+    activeHorizon: "ALL",
     
-    // Case Registry Database (Backed by /api/v1/cases + Pinned Benchmark)
-    cases: [R001_BENCHMARK_RECORD],
+    // Case Registry Database (Backed by North Sea + Pinned Benchmark + /api/v1/cases)
+    cases: [VARUNA_NORTH_SEA_RECORD, R001_BENCHMARK_RECORD],
 
     // Active View Settings
     activeSarBand: "VV",
@@ -61,11 +90,22 @@
     
     // Map Canvas Handles
     maps: {
+      overview: null,
       observe: null,
       analyze: null,
       reconstruct: null,
       attribute: null,
       wizAoi: null
+    },
+    overviewLayers: {
+      anomaly: null,
+      extent: null,
+      traj6h: null,
+      traj12h: null,
+      traj24h: null,
+      traj48h: null,
+      envelope: null,
+      receptors: null
     },
     sarOverlays: {
       observe: null,
@@ -141,7 +181,21 @@
             ]
           };
         });
-        state.cases = [R001_BENCHMARK_RECORD, ...mappedGeneric.filter(c => c.case_id !== "R001_WAKASHIO")];
+        state.cases = [
+          VARUNA_NORTH_SEA_RECORD,
+          R001_BENCHMARK_RECORD,
+          ...mappedGeneric.filter(c => c.case_id !== "R001_WAKASHIO" && c.case_id !== "VARUNA-CASE-2024-0410-NS01")
+        ];
+
+        // Populate topbar incident selector
+        const topSelect = document.getElementById("topbar-incident-select");
+        if (topSelect) {
+          topSelect.innerHTML = state.cases.map(c => `
+            <option value="${c.case_id}" ${c.case_id === state.investigationId ? 'selected' : ''}>
+              ${c.case_id} — ${c.case_name || c.location}
+            </option>
+          `).join("");
+        }
       }
     } catch (err) {
       console.warn("Failed to load cases from /api/v1/cases:", err);
@@ -181,8 +235,30 @@
     }
   }
 
+  async function checkBackendHealth() {
+    const healthPill = document.getElementById("topbar-backend-status");
+    if (!healthPill) return;
+    try {
+      const t0 = performance.now();
+      const res = await fetch(`${API_ORIGIN}/health`, { signal: AbortSignal.timeout(3000) });
+      const ms = Math.round(performance.now() - t0);
+      if (res.ok) {
+        healthPill.innerText = `ONLINE (${ms}ms)`;
+        healthPill.className = "text-emerald-400 font-bold text-[11px]";
+      } else {
+        healthPill.innerText = `HTTP ${res.status}`;
+        healthPill.className = "text-amber-400 font-bold text-[11px]";
+      }
+    } catch (e) {
+      healthPill.innerText = "OFFLINE (8000)";
+      healthPill.className = "text-red-400 font-bold text-[11px]";
+    }
+  }
+
   async function initApp() {
     await loadCasesFromBackend();
+    checkBackendHealth();
+    setInterval(checkBackendHealth, 30000);
     renderOpsHome();
     window.renderCasesRegistry();
     window.switchDomain(state.currentDomain);
@@ -192,31 +268,38 @@
      DOMAIN & MODULE SWITCHING
      ========================================================================== */
 
-  window.switchDomain = function (domain) {
+  window.switchDomain = function (rawDomain) {
+    let domain = rawDomain;
+
+    // Domain Aliases
+    if (domain === "FORECAST") domain = "RECONSTRUCT";
+    if (domain === "VESSEL") domain = "ATTRIBUTE";
+    if (domain === "EVIDENCE") domain = "REVIEW";
+
     state.currentDomain = domain;
 
-    // Update Top Module Styling
-    document.querySelectorAll(".nav-module").forEach(el => {
-      const isAct = (domain === "HOME" && el.dataset.module === "OPERATIONS") ||
-                    (domain === "CASES" && el.dataset.module === "CASES") ||
-                    (domain === "OBSERVE" && el.dataset.module === "SATELLITE") ||
-                    (domain === "ANALYZE" && el.dataset.module === "ANALYSIS") ||
-                    (domain === "RECONSTRUCT" && el.dataset.module === "PHYSICS") ||
-                    (domain === "ATTRIBUTE" && el.dataset.module === "VESSEL") ||
-                    (domain === "REVIEW" && el.dataset.module === "REPORTS");
-      el.classList.toggle("text-primary", isAct);
-      el.classList.toggle("font-semibold", isAct);
-      el.classList.toggle("text-on-surface-variant", !isAct);
+    // Update Sidebar Navigation Buttons Styling
+    document.querySelectorAll(".sn-nav-btn").forEach(btn => {
+      const btnDom = btn.dataset.domain;
+      const isAct = (btnDom === rawDomain) || (btnDom === domain);
+      btn.classList.toggle("bg-cyan-950/70", isAct);
+      btn.classList.toggle("text-cyan-300", isAct);
+      btn.classList.toggle("border-l-2", isAct);
+      btn.classList.toggle("border-cyan-400", isAct);
+      btn.classList.toggle("font-bold", isAct);
+      btn.classList.toggle("text-slate-300", !isAct);
     });
 
-    // Update Sidebar Styling
-    document.querySelectorAll(".sn-nav-btn").forEach(btn => {
-      const isAct = btn.dataset.domain === domain;
-      btn.classList.toggle("bg-primary-container", isAct);
-      btn.classList.toggle("text-on-primary-container", isAct);
-      btn.classList.toggle("border-l-2", isAct);
-      btn.classList.toggle("border-primary", isAct);
-      btn.classList.toggle("text-on-surface-variant", !isAct);
+    // Update Workflow Bar active step
+    document.querySelectorAll(".varuna-workflow-stage").forEach(st => {
+      const stText = st.innerText.toUpperCase();
+      const isAct = (domain === "OVERVIEW" && stText.includes("RESPONSE")) ||
+                    (domain === "OBSERVE" && stText.includes("OBSERVED")) ||
+                    (domain === "ANALYZE" && (stText.includes("ANALYSED") || stText.includes("QUALIFIED"))) ||
+                    (domain === "RECONSTRUCT" && stText.includes("FORECAST")) ||
+                    (domain === "ATTRIBUTE" && stText.includes("INVESTIGATION")) ||
+                    (domain === "REVIEW" && stText.includes("REVIEW"));
+      st.classList.toggle("active", isAct);
     });
 
     // Hide All Domain Workspaces
@@ -227,18 +310,26 @@
     const target = document.getElementById(`domain-${domId}`);
     if (target) target.classList.remove("hidden");
 
-    // Dynamic Header Updates
+    // Dynamic Header & Sidebar Updates
     const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
     const sTitle = document.getElementById("sidebar-case-title");
     const sSub = document.getElementById("sidebar-case-sub");
-    if (sTitle) sTitle.innerText = activeCase.case_id === "R001_WAKASHIO" ? "CASE R001" : activeCase.case_id;
-    if (sSub) sSub.innerText = activeCase.case_name;
+    if (sTitle) sTitle.innerText = activeCase.case_name || activeCase.case_id;
+    if (sSub) sSub.innerText = activeCase.case_id;
+
+    // Sync Topbar Incident selector
+    const sel = document.getElementById("topbar-incident-select");
+    if (sel && sel.value !== state.investigationId) {
+      sel.value = state.investigationId;
+    }
 
     // Trigger Specific View Handlers
     setTimeout(() => {
-      if (domain === "HOME") renderOpsHome();
+      if (domain === "OVERVIEW") {
+        initOverviewMap();
+        renderOverviewPanel();
+      } else if (domain === "HOME") renderOpsHome();
       else if (domain === "CASES") renderCasesRegistry();
-      else if (domain === "OVERVIEW") renderCaseOverview();
       else if (domain === "OBSERVE") initObserveMap();
       else if (domain === "ANALYZE") initAnalyzeMap();
       else if (domain === "RECONSTRUCT") { initReconstructMap(); renderReconstructInspector(); }
@@ -247,6 +338,374 @@
       else if (domain === "ACTIVITY") renderCaseActivityTimeline();
     }, 50);
   };
+
+  /* ==========================================================================
+     SCREEN 1: OVERVIEW / COMMAND CENTER MAP & RESPONSE INTELLIGENCE
+     ========================================================================== */
+
+  function initOverviewMap() {
+    const mapContainer = document.getElementById("overview-map");
+    if (!mapContainer) return;
+
+    const isNorthSea = (state.investigationId === "VARUNA-CASE-2024-0410-NS01" || !isBenchmarkCase(state.investigationId));
+    const defaultCenter = isNorthSea ? [53.50, 2.50] : [-20.4382, 57.7432];
+    const defaultZoom = isNorthSea ? 10 : 11;
+
+    if (!state.maps.overview) {
+      state.maps.overview = L.map("overview-map", {
+        center: defaultCenter,
+        zoom: defaultZoom,
+        zoomControl: false,
+        attributionControl: false
+      });
+
+      state.maps.overview.on("mousemove", (e) => {
+        updateStatusBarCoords(e.latlng.lat, e.latlng.lng);
+        const ovCoordEl = document.getElementById("ov-map-coords");
+        if (ovCoordEl) {
+          ovCoordEl.innerText = `${Math.abs(e.latlng.lat).toFixed(4)}° ${e.latlng.lat >= 0 ? "N" : "S"}, ${Math.abs(e.latlng.lng).toFixed(4)}° ${e.latlng.lng >= 0 ? "E" : "W"}`;
+        }
+      });
+
+      // CartoDB Dark Matter maritime basemap
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        maxZoom: 19,
+        subdomains: "abcd"
+      }).addTo(state.maps.overview);
+    }
+
+    state.maps.overview.invalidateSize();
+
+    // Clear previous situational layers
+    Object.keys(state.overviewLayers).forEach(k => {
+      if (state.overviewLayers[k] && state.maps.overview.hasLayer(state.overviewLayers[k])) {
+        state.maps.overview.removeLayer(state.overviewLayers[k]);
+        state.overviewLayers[k] = null;
+      }
+    });
+
+    if (isNorthSea) {
+      // 1. OIL-LIKE ANOMALY POLYGON (1.24 km2)
+      const anomalyCoords = [
+        [53.488, 2.475],
+        [53.512, 2.502],
+        [53.518, 2.532],
+        [53.506, 2.545],
+        [53.492, 2.520],
+        [53.484, 2.490],
+        [53.488, 2.475]
+      ];
+
+      state.overviewLayers.anomaly = L.polygon(anomalyCoords, {
+        color: "#38bdf8",
+        weight: 2,
+        fillColor: "#0284c7",
+        fillOpacity: 0.65
+      }).addTo(state.maps.overview);
+
+      state.overviewLayers.anomaly.bindPopup(`
+        <div class="font-mono text-xs p-1 space-y-1">
+          <div class="text-[10px] text-cyan-400 font-bold uppercase">CURRENT EVENT</div>
+          <div class="text-white font-bold text-sm">Oil-like surface anomaly</div>
+          <div class="text-slate-300">Area: <strong class="text-cyan-300">1.24 km²</strong> (SYNTHETIC_DEMO)</div>
+          <div class="text-slate-300">Gate: <strong class="text-emerald-400">PHYSICS_ELIGIBLE</strong></div>
+          <div class="text-slate-400 text-[10px]">SmallUNet segmentation (Solidity: 0.78, Elongation: 2.35)</div>
+        </div>
+      `);
+
+      // 2. PROBABLE EXTENT (Expanded Hull)
+      const extentCoords = [
+        [53.478, 2.460],
+        [53.522, 2.495],
+        [53.528, 2.545],
+        [53.512, 2.560],
+        [53.485, 2.532],
+        [53.475, 2.478],
+        [53.478, 2.460]
+      ];
+
+      state.overviewLayers.extent = L.polygon(extentCoords, {
+        color: "#06b6d4",
+        dashArray: "5, 5",
+        weight: 1.5,
+        fillColor: "#06b6d4",
+        fillOpacity: 0.12
+      }).addTo(state.maps.overview);
+
+      state.overviewLayers.extent.bindPopup(`
+        <div class="font-mono text-xs p-1">
+          <div class="text-cyan-400 font-bold">PROBABLE SLICK EXTENT</div>
+          <div class="text-slate-300 mt-0.5">Confidence Envelope: 95% Confidence Interval</div>
+        </div>
+      `);
+
+      // 3. TRAJECTORY VECTORS (+6h, +12h, +24h, +48h)
+      const trajPoints = [
+        [53.502, 2.510], // T0 (Now)
+        [53.542, 2.625], // +6h
+        [53.585, 2.748], // +12h
+        [53.665, 2.980], // +24h
+        [53.815, 3.420]  // +48h
+      ];
+
+      // +6h segment (Solid cyan)
+      state.overviewLayers.traj6h = L.layerGroup([
+        L.polyline([trajPoints[0], trajPoints[1]], { color: "#38bdf8", weight: 3.5, opacity: 0.95 }),
+        L.circleMarker(trajPoints[1], { radius: 5, color: "#38bdf8", fillColor: "#0b1220", fillOpacity: 1, weight: 2 }).bindPopup("<div class='font-mono text-xs font-bold text-cyan-300'>HORIZON: +6H<br><span class='text-slate-400 font-normal'>Drift distance: ~7.4 km (068° ENE)</span></div>")
+      ]).addTo(state.maps.overview);
+
+      // +12h segment (Teal dashed)
+      state.overviewLayers.traj12h = L.layerGroup([
+        L.polyline([trajPoints[1], trajPoints[2]], { color: "#14b8a6", weight: 3, dashArray: "4, 4", opacity: 0.9 }),
+        L.circleMarker(trajPoints[2], { radius: 5, color: "#14b8a6", fillColor: "#0b1220", fillOpacity: 1, weight: 2 }).bindPopup("<div class='font-mono text-xs font-bold text-teal-300'>HORIZON: +12H<br><span class='text-slate-400 font-normal'>Drift distance: ~14.8 km (068° ENE)</span></div>")
+      ]).addTo(state.maps.overview);
+
+      // +24h segment (Sky blue dashed)
+      state.overviewLayers.traj24h = L.layerGroup([
+        L.polyline([trajPoints[2], trajPoints[3]], { color: "#0284c7", weight: 2.5, dashArray: "4, 4", opacity: 0.85 }),
+        L.circleMarker(trajPoints[3], { radius: 5, color: "#0284c7", fillColor: "#0b1220", fillOpacity: 1, weight: 2 }).bindPopup("<div class='font-mono text-xs font-bold text-sky-300'>HORIZON: +24H<br><span class='text-slate-400 font-normal'>Drift distance: ~29.5 km</span></div>")
+      ]).addTo(state.maps.overview);
+
+      // +48h segment (Slate blue dotted)
+      state.overviewLayers.traj48h = L.layerGroup([
+        L.polyline([trajPoints[3], trajPoints[4]], { color: "#64748b", weight: 2, dashArray: "3, 3", opacity: 0.8 }),
+        L.circleMarker(trajPoints[4], { radius: 5, color: "#64748b", fillColor: "#0b1220", fillOpacity: 1, weight: 2 }).bindPopup("<div class='font-mono text-xs font-bold text-slate-300'>HORIZON: +48H<br><span class='text-slate-400 font-normal'>Drift distance: ~58.2 km</span></div>")
+      ]).addTo(state.maps.overview);
+
+      // 4. UNCERTAINTY ENVELOPE CORRIDOR (±4.8 km to ±9.2 km)
+      const envelopeCoords = [
+        [53.525, 2.605],
+        [53.555, 2.715],
+        [53.620, 2.920],
+        [53.750, 3.320],
+        [53.860, 3.480],
+        [53.800, 3.520],
+        [53.700, 3.080],
+        [53.610, 2.780],
+        [53.555, 2.645],
+        [53.525, 2.605]
+      ];
+
+      state.overviewLayers.envelope = L.polygon(envelopeCoords, {
+        color: "#0284c7",
+        weight: 1.5,
+        dashArray: "4, 4",
+        fillColor: "#0284c7",
+        fillOpacity: 0.15
+      }).addTo(state.maps.overview);
+
+      state.overviewLayers.envelope.bindPopup(`
+        <div class="font-mono text-xs p-1">
+          <div class="text-sky-400 font-bold">48H UNCERTAINTY CORRIDOR</div>
+          <div class="text-slate-300 mt-0.5">Dispersion Radius: ±4.8 km @ 24h → ±9.2 km @ 48h</div>
+          <div class="text-amber-400 text-[10px] mt-1 font-bold">SYNTHETIC_DEMO Drift Kinematics</div>
+        </div>
+      `);
+
+      // 5. RELEVANT RECEPTOR MARKERS
+      // Coastal Wetland Zone A (Critical High Priority at ~8h 42m drift distance)
+      const wetlandMarker = L.circleMarker([53.570, 2.705], {
+        radius: 8,
+        color: "#ef4444",
+        fillColor: "#ef4444",
+        fillOpacity: 0.85,
+        weight: 3,
+        className: "receptor-marker-pulse"
+      });
+
+      wetlandMarker.bindPopup(`
+        <div class="font-mono text-xs p-1 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-red-400 font-bold uppercase text-[10px]">CRITICAL RECEPTOR</span>
+            <span class="px-1.5 py-0.2 rounded bg-red-950 text-red-300 border border-red-800 font-bold text-[9px]">HIGH</span>
+          </div>
+          <div class="text-white font-bold text-sm">Coastal Wetland Zone A</div>
+          <div class="text-slate-300">Estimated Arrival: <strong class="text-amber-400">08h 42m</strong> (Horizon: +9h)</div>
+          <div class="text-slate-300">Sensitivity: <span class="text-red-300">HIGH (Intertidal Estuary Sanctuary)</span></div>
+          <div class="text-slate-400 text-[10px] pt-1 border-t border-slate-800">
+            Action: Immediate containment booming &amp; staging advised.
+          </div>
+        </div>
+      `);
+
+      // Fishing Ground B (Secondary Medium Priority at 17h)
+      const fishingMarker = L.circleMarker([53.630, 2.860], {
+        radius: 7,
+        color: "#f59e0b",
+        fillColor: "#f59e0b",
+        fillOpacity: 0.8,
+        weight: 2
+      });
+
+      fishingMarker.bindPopup(`
+        <div class="font-mono text-xs p-1 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="text-amber-400 font-bold uppercase text-[10px]">SECONDARY RECEPTOR</span>
+            <span class="px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 font-bold text-[9px]">MEDIUM</span>
+          </div>
+          <div class="text-white font-bold text-sm">Fishing Ground B</div>
+          <div class="text-slate-300">Estimated Arrival: <strong class="text-amber-400">17h 00m</strong></div>
+          <div class="text-slate-300">Sensitivity: Commercial Demersal Trawling Zone</div>
+        </div>
+      `);
+
+      state.overviewLayers.receptors = L.layerGroup([wetlandMarker, fishingMarker]).addTo(state.maps.overview);
+
+      // Fit bounds nicely
+      const group = L.featureGroup([
+        state.overviewLayers.anomaly,
+        state.overviewLayers.envelope,
+        wetlandMarker,
+        fishingMarker
+      ]);
+      state.maps.overview.fitBounds(group.getBounds(), { padding: [40, 40], animate: false });
+    } else {
+      // Mauritius Wakashio Benchmark
+      const mauritiusAnomaly = [
+        [-20.445, 57.735],
+        [-20.435, 57.742],
+        [-20.430, 57.755],
+        [-20.440, 57.760],
+        [-20.450, 57.748],
+        [-20.445, 57.735]
+      ];
+
+      state.overviewLayers.anomaly = L.polygon(mauritiusAnomaly, {
+        color: "#38bdf8",
+        weight: 2,
+        fillColor: "#0284c7",
+        fillOpacity: 0.65
+      }).addTo(state.maps.overview);
+
+      state.overviewLayers.anomaly.bindPopup("<div class='font-mono text-xs font-bold text-cyan-300'>CASE R001 — MAURITIUS ANOMALY<br><span class='text-slate-400 font-normal'>Area: 1.42 km² | Candidate C4053</span></div>");
+
+      const mTraj = [
+        [-20.438, 57.745],
+        [-20.428, 57.728],
+        [-20.415, 57.712],
+        [-20.400, 57.690],
+        [-20.370, 57.640]
+      ];
+
+      state.overviewLayers.traj6h = L.polyline([mTraj[0], mTraj[1]], { color: "#38bdf8", weight: 3 }).addTo(state.maps.overview);
+      state.overviewLayers.traj12h = L.polyline([mTraj[1], mTraj[2]], { color: "#14b8a6", weight: 3, dashArray: "4, 4" }).addTo(state.maps.overview);
+      state.overviewLayers.traj24h = L.polyline([mTraj[2], mTraj[3]], { color: "#0284c7", weight: 2.5, dashArray: "4, 4" }).addTo(state.maps.overview);
+      state.overviewLayers.traj48h = L.polyline([mTraj[3], mTraj[4]], { color: "#64748b", weight: 2, dashArray: "3, 3" }).addTo(state.maps.overview);
+
+      const mReceptor = L.circleMarker([-20.442, 57.715], { radius: 8, color: "#ef4444", fillColor: "#ef4444", fillOpacity: 0.85, className: "receptor-marker-pulse" }).addTo(state.maps.overview);
+      mReceptor.bindPopup("<div class='font-mono text-xs font-bold text-red-400'>CRITICAL RECEPTOR<br><span class='text-white font-bold'>Coastal Wetland Zone A (Blue Bay Marine Park)</span><br>ETA: 08h 42m | Priority: HIGH</div>");
+
+      state.overviewLayers.receptors = L.layerGroup([mReceptor]).addTo(state.maps.overview);
+
+      state.maps.overview.setView([-20.4382, 57.7432], 11);
+    }
+  }
+
+  window.fitOverviewBounds = function () {
+    if (!state.maps.overview) return;
+    if (state.overviewLayers.anomaly) {
+      const activeGroup = [];
+      Object.keys(state.overviewLayers).forEach(k => {
+        if (state.overviewLayers[k] && state.maps.overview.hasLayer(state.overviewLayers[k])) {
+          activeGroup.push(state.overviewLayers[k]);
+        }
+      });
+      if (activeGroup.length > 0) {
+        state.maps.overview.fitBounds(L.featureGroup(activeGroup).getBounds(), { padding: [40, 40], animate: true });
+      }
+    }
+  };
+
+  window.setOverviewHorizon = function (horizon) {
+    state.activeHorizon = horizon;
+
+    // Update button states
+    ["all", "now", "6h", "12h", "24h", "48h"].forEach(h => {
+      const btn = document.getElementById(`btn-horizon-${h}`);
+      if (btn) {
+        const isAct = (h.toUpperCase() === horizon);
+        btn.classList.toggle("bg-cyan-600", isAct);
+        btn.classList.toggle("text-white", isAct);
+        btn.classList.toggle("font-bold", isAct);
+        btn.classList.toggle("text-slate-300", !isAct);
+      }
+    });
+
+    if (!state.maps.overview) return;
+
+    // Filter situational layers
+    const show6h = (horizon === "ALL" || horizon === "6H" || horizon === "12H" || horizon === "24H" || horizon === "48H");
+    const show12h = (horizon === "ALL" || horizon === "12H" || horizon === "24H" || horizon === "48H");
+    const show24h = (horizon === "ALL" || horizon === "24H" || horizon === "48H");
+    const show48h = (horizon === "ALL" || horizon === "48H");
+    const showEnvelope = (horizon === "ALL" || horizon === "48H");
+
+    if (state.overviewLayers.traj6h) {
+      if (show6h) state.maps.overview.addLayer(state.overviewLayers.traj6h);
+      else state.maps.overview.removeLayer(state.overviewLayers.traj6h);
+    }
+    if (state.overviewLayers.traj12h) {
+      if (show12h) state.maps.overview.addLayer(state.overviewLayers.traj12h);
+      else state.maps.overview.removeLayer(state.overviewLayers.traj12h);
+    }
+    if (state.overviewLayers.traj24h) {
+      if (show24h) state.maps.overview.addLayer(state.overviewLayers.traj24h);
+      else state.maps.overview.removeLayer(state.overviewLayers.traj24h);
+    }
+    if (state.overviewLayers.traj48h) {
+      if (show48h) state.maps.overview.addLayer(state.overviewLayers.traj48h);
+      else state.maps.overview.removeLayer(state.overviewLayers.traj48h);
+    }
+    if (state.overviewLayers.envelope) {
+      if (showEnvelope) state.maps.overview.addLayer(state.overviewLayers.envelope);
+      else state.maps.overview.removeLayer(state.overviewLayers.envelope);
+    }
+  };
+
+  window.selectTopbarIncident = function (caseId) {
+    state.investigationId = caseId;
+    const activeCase = state.cases.find(c => c.case_id === caseId) || state.cases[0];
+
+    // Update Topbar Dropdown value
+    const sel = document.getElementById("topbar-incident-select");
+    if (sel && sel.value !== caseId) sel.value = caseId;
+
+    // Update Sidebar Titles
+    const sTitle = document.getElementById("sidebar-case-title");
+    const sSub = document.getElementById("sidebar-case-sub");
+    if (sTitle) sTitle.innerText = activeCase.case_name || activeCase.case_id;
+    if (sSub) sSub.innerText = activeCase.case_id;
+
+    // Refresh Overview Map & Response Intelligence Panel
+    initOverviewMap();
+    renderOverviewPanel();
+  };
+
+  function renderOverviewPanel() {
+    const isNorthSea = (state.investigationId === "VARUNA-CASE-2024-0410-NS01" || !isBenchmarkCase(state.investigationId));
+    const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
+
+    const areaEl = document.getElementById("ov-intel-area");
+    const windowEl = document.getElementById("ov-intel-window");
+    const coordsEl = document.getElementById("ov-map-coords");
+
+    if (areaEl) areaEl.innerText = isNorthSea ? "1.24 km²" : "1.42 km²";
+    if (windowEl) windowEl.innerText = "08h 42m";
+    if (coordsEl) {
+      coordsEl.innerText = isNorthSea ? "53.5000° N, 02.5000° E" : "20.4382° S, 57.7432° E";
+    }
+
+    // Update topbar badges
+    const statusEl = document.getElementById("topbar-incident-status");
+    if (statusEl) {
+      statusEl.innerText = activeCase.status || "ACTIVE INCIDENT";
+    }
+
+    const modeEl = document.getElementById("topbar-execution-mode");
+    if (modeEl) {
+      modeEl.innerText = isBenchmarkCase(state.investigationId) ? "VALIDATED BENCHMARK" : "SYNTHETIC_DEMO";
+    }
+  }
 
   /* ==========================================================================
      MODULE 0: OPERATIONS HOME RENDERER
