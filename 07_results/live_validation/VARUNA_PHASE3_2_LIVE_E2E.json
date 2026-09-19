@@ -1,0 +1,80 @@
+{
+  "phase": "3.2",
+  "name": "VARUNA Phase 3.2 Live Sentinel Pipeline Hardening",
+  "branch": "feature/varuna-live-e2e",
+  "repository": "SPYLEAN/Varuna-maritime",
+  "timestamp_utc": "2026-09-19T01:54:00Z",
+  "overall_status": "PARTIAL",
+  "target_observation": {
+    "item_id": "S1A_IW_GRDH_1SDV_20240914T011113_20240914T011139_055654_06CB9B_D44A_COG",
+    "expected_odata_uuid": "80587464-dae0-48af-89f1-0473bcdfd4a1",
+    "stac_catalog_url": "https://stac.dataspace.copernicus.eu/v1/",
+    "stac_resolution_status": "PASS"
+  },
+  "real_provider_results": {
+    "cdse_auth": "SKIPPED_CREDENTIALS_ABSENT",
+    "download_status": "SKIPPED_CREDENTIALS_ABSENT",
+    "archive_bytes": 0,
+    "archive_sha256": null,
+    "safe_extracted": false,
+    "manifest_valid": false,
+    "vv_preprocessing": "SKIPPED",
+    "vh_preprocessing": "SKIPPED",
+    "note": "CDSE Keycloak credentials (CDSE_USER, CDSE_PASS) were not configured in this automated agent environment; test_real_download_and_processing_chain gracefully skipped according to contract."
+  },
+  "synthetic_unit_smoke_results": {
+    "backend_sar_processing_chain": {
+      "passed": 21,
+      "failed": 0,
+      "skipped": 1
+    },
+    "backend_sentinel_catalog": {
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0
+    },
+    "backend_phase1_multicase": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    "backend_full_suite": {
+      "passed": 209,
+      "failed": 0,
+      "skipped": 1
+    },
+    "ml_test_suite": {
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0
+    },
+    "georeference_truthfulness": {
+      "error_class": "GeoreferenceUnavailableError",
+      "fabricated_identity_fallback": "REMOVED",
+      "test": "test_georef_failure_never_fabricates_epsg4326 PASSED"
+    },
+    "radiometric_modes": {
+      "SIGMA0_LUT_CALIBRATED": "SAFE calibration LUT successfully applied",
+      "MEASUREMENT_INTENSITY_FALLBACK": "SAFE measurement without LUT fallback",
+      "PROVIDER_PRECALIBRATED": "Caller/GeoTIFF metadata explicitly supports it",
+      "UNKNOWN": "Default for generic rasters; pixel magnitude guessing removed"
+    },
+    "dual_polarization_contract": {
+      "vv_vh_processed_both": true,
+      "spatial_alignment_verified": true,
+      "output_naming_contract": [
+        "<obs_id>_vv_sigma0_db.tif",
+        "<obs_id>_vh_sigma0_db.tif"
+      ]
+    }
+  },
+  "model_boundary": {
+    "status": "MODEL_UNAVAILABLE",
+    "oilseg_v1_connected": false,
+    "description": "OilSeg V1 (2-channel VV/VH PyTorch checkpoint) boundary kept separate from backend segmentation engine (3-channel 5-class ONNX) per Phase 3.2 specification."
+  },
+  "synthetic_fallback_used_in_integration_test": false,
+  "remaining_blockers": [
+    "Configure CDSE_USER and CDSE_PASS in local environment or .env to run real CDSE download and end-to-end SAFE calibration."
+  ]
+}
