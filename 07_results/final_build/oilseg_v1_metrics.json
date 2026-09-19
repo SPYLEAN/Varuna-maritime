@@ -1,0 +1,104 @@
+{
+  "model_architecture": "small_unet",
+  "model_version": "varuna-oilseg-v1-smallunet",
+  "checkpoint_path": "models\\oil_detection\\varuna_oilseg_v1_smallunet.pt",
+  "checkpoint_sha256": "dda8fac84e6ceedcef76889acc78f8c6eb07d2d586ff00bf4dfbbf656da46e0b",
+  "dataset_version": "oilseg_v1_canonical",
+  "train_manifest_sha256": "e44fc150b2386b9b052d3eeb47ddcae4c424b19d9b487a85a2b3bb4c7a262e64",
+  "val_manifest_sha256": "1bc1736c93abfebf7db5fcdcbb20a4933cd147bc7e96ea19442639f899fbd7cb",
+  "test_manifest_sha256": "2d1b4b97795d132a765b5c75fb11eccb56c8bc140b1ab9bab9aaa97ba33feb08",
+  "training_parameters": {
+    "seed": 42,
+    "epochs": 12,
+    "batch_size": 4,
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "loss_function": "BCEWithLogitsLoss + DiceLoss",
+    "image_size": [
+      256,
+      256
+    ],
+    "input_channels": 2,
+    "channel_order": [
+      "VV",
+      "VH"
+    ],
+    "preprocessing": {
+      "method": "fixed_db",
+      "channel_order": [
+        "VV",
+        "VH"
+      ],
+      "db_min": [
+        -30.0,
+        -35.0
+      ],
+      "db_max": [
+        0.0,
+        -5.0
+      ],
+      "lower_percentile": 1.0,
+      "upper_percentile": 99.0,
+      "invalid_value_policy": "error",
+      "invalid_fill_db": null,
+      "input_scale": "sigma0_db",
+      "output_range": [
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.12.10",
+    "torch_version": "2.13.0+cpu",
+    "cuda_available": false,
+    "device": "cpu"
+  },
+  "test_metrics": {
+    "global_segmentation": {
+      "dice": 0.984242,
+      "iou": 0.968973,
+      "precision": 0.98005,
+      "recall": 0.988471
+    },
+    "oil_evidence_metric": "OIL_EVIDENCE_SCORE",
+    "category_performance": {
+      "oil": {
+        "dice": 0.984242,
+        "iou": 0.968973,
+        "precision": 0.98005,
+        "recall": 0.988471,
+        "sample_count": 6
+      },
+      "lookalike": {
+        "sample_count": 4,
+        "false_positive_scene_rate": 0.0,
+        "mean_predicted_oil_fraction": 0.0,
+        "maximum_predicted_oil_fraction": 0.0,
+        "percentage_above_oil_fraction_threshold": 0.0
+      },
+      "no_oil": {
+        "sample_count": 4,
+        "false_positive_scene_rate": 0.0,
+        "mean_predicted_oil_fraction": 0.0,
+        "maximum_predicted_oil_fraction": 0.0,
+        "percentage_above_oil_fraction_threshold": 0.0
+      }
+    },
+    "summary_scores": {
+      "oil_iou": 0.968973,
+      "oil_dice": 0.984242,
+      "oil_precision": 0.98005,
+      "oil_recall": 0.988471,
+      "lookalike_false_positive_scene_rate": 0.0,
+      "lookalike_mean_predicted_oil_fraction": 0.0,
+      "lookalike_max_predicted_oil_fraction": 0.0,
+      "no_oil_false_positive_scene_rate": 0.0,
+      "no_oil_mean_predicted_oil_fraction": 0.0,
+      "no_oil_max_predicted_oil_fraction": 0.0
+    }
+  },
+  "scientific_disclaimer": "Raw neural network activations represent an empirical OIL_EVIDENCE_SCORE. Values do NOT constitute calibrated statistical probabilities until empirical Platt/isotonic calibration against in-situ drifter releases is performed."
+}
