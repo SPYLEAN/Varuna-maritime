@@ -1,12 +1,16 @@
 {
   "model_architecture": "small_unet",
   "model_version": "varuna-oilseg-v1-smallunet",
-  "checkpoint_path": "models\\oil_detection\\varuna_oilseg_v1_smallunet.pt",
+  "checkpoint_path": "models/oil_detection/varuna_oilseg_v1_smallunet.pt",
   "checkpoint_sha256": "dda8fac84e6ceedcef76889acc78f8c6eb07d2d586ff00bf4dfbbf656da46e0b",
-  "dataset_version": "oilseg_v1_canonical",
-  "train_manifest_sha256": "e44fc150b2386b9b052d3eeb47ddcae4c424b19d9b487a85a2b3bb4c7a262e64",
-  "val_manifest_sha256": "1bc1736c93abfebf7db5fcdcbb20a4933cd147bc7e96ea19442639f899fbd7cb",
-  "test_manifest_sha256": "2d1b4b97795d132a765b5c75fb11eccb56c8bc140b1ab9bab9aaa97ba33feb08",
+  "dataset_version": "VARUNA_OILSEG_V1_SYNTHETIC_BENCHMARK",
+  "data_mode": "SYNTHETIC",
+  "sensor_simulation": "SENTINEL1_LIKE_DUAL_POL",
+  "evaluation_type": "SYNTHETIC_BENCHMARK_METRICS",
+  "real_world_validation": "REAL_WORLD_GENERALIZATION_NOT_YET_VALIDATED",
+  "train_manifest_sha256": "108092177067dd9c15716dc0094b635c729f4bf556faadcc2a1e99a17a6d6f17",
+  "val_manifest_sha256": "544f2c748430c51596e960f696d2f442e3e7fa465a12ffa9b70c306b8e9d79b6",
+  "test_manifest_sha256": "43b2bf7f89bc70adeb5116e8e1d12f291b78be7b7e672f6700c550de7b9eb444",
   "training_parameters": {
     "seed": 42,
     "epochs": 12,
@@ -57,6 +61,7 @@
     "device": "cpu"
   },
   "test_metrics": {
+    "evaluation_scope": "SYNTHETIC_BENCHMARK_METRICS",
     "global_segmentation": {
       "dice": 0.984242,
       "iou": 0.968973,
@@ -88,10 +93,10 @@
       }
     },
     "summary_scores": {
-      "oil_iou": 0.968973,
-      "oil_dice": 0.984242,
-      "oil_precision": 0.98005,
-      "oil_recall": 0.988471,
+      "synthetic_oil_iou": 0.968973,
+      "synthetic_oil_dice": 0.984242,
+      "synthetic_oil_precision": 0.98005,
+      "synthetic_oil_recall": 0.988471,
       "lookalike_false_positive_scene_rate": 0.0,
       "lookalike_mean_predicted_oil_fraction": 0.0,
       "lookalike_max_predicted_oil_fraction": 0.0,
@@ -100,5 +105,5 @@
       "no_oil_max_predicted_oil_fraction": 0.0
     }
   },
-  "scientific_disclaimer": "Raw neural network activations represent an empirical OIL_EVIDENCE_SCORE. Values do NOT constitute calibrated statistical probabilities until empirical Platt/isotonic calibration against in-situ drifter releases is performed."
+  "scientific_disclaimer": "Metrics reported are strictly SYNTHETIC_BENCHMARK_METRICS evaluated on simulated C-band SAR backscatter distributions. REAL_WORLD_GENERALIZATION_NOT_YET_VALIDATED against genuine satellite emergency taskings or in-situ verified groundings. Raw model activations output an empirical OIL_EVIDENCE_SCORE, not a calibrated statistical probability."
 }

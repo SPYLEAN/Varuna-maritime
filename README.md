@@ -2,38 +2,38 @@
 
 **Version**: `2.1.0-final` (Build: `final/varuna-24h-build`)  
 **Status**: `OPERATIONAL_EVALUATION_READY` | `ALL_TESTS_PASSING`  
-**Automated Tests**: **265 passed, 1 skipped, 0 failed** across `backend/tests` and `ml/tests`.
+**Automated Tests**: **273 passed, 1 skipped, 0 failed** across `backend/tests` and `ml/tests`.
 
 ---
 
 ## 1. Executive Summary
 
-**VARUNA** is an end-to-end maritime pollution intelligence platform that bridges the gap between raw Synthetic Aperture Radar (SAR) observations and legally defensible maritime incident attribution.
+**VARUNA** is an end-to-end maritime pollution intelligence platform that bridges the gap between raw Synthetic Aperture Radar (SAR) observations and decision-support incident attribution.
 
-Rather than treating dark radar patches as simple thresholded pixels or making unfounded culpability claims, VARUNA implements a rigorous, physics-grounded operational chain:
+Rather than treating dark radar patches as simple thresholded pixels or making premature culpability claims, VARUNA implements a physics-grounded operational chain with transparent execution modes (`REAL`, `SYNTHETIC_DEMO`, `BLOCKED`):
 ```
 INCIDENT
-  └── SENTINEL-1 INGESTION
-        └── VV / VH RADIOMETRIC CALIBRATION (Sigma0 dB)
-              └── OIL-LIKE SLICK EVIDENCE (SmallUNet Dual-Channel)
-                    └── SLICK VECTOR GEOMETRY (GeoJSON extraction)
-                          └── HINDCAST & FORECAST (OpenDrift Lagrangian Physics)
-                                └── SPATIOTEMPORAL AIS CORRELATION
-                                      └── INVESTIGATIVE CANDIDATE PRIORITIZATION
-                                            └── UNCERTAINTY & CRYPTOGRAPHIC PROVENANCE
-                                                  └── INCIDENT REVIEW & DOSSIER EXPORT
+  └── OBSERVATION SEARCH & ATTACH (REAL)
+        └── CDSE PRODUCT ACQUISITION (REAL / BLOCKED)
+              └── VV / VH CALIBRATION (REAL / SYNTHETIC_DEMO)
+                    └── OIL-LIKE SLICK EVIDENCE (SmallUNet Dual-Channel, REAL)
+                          └── SLICK VECTOR GEOMETRY (GeoJSON extraction, REAL)
+                                └── HINDCAST & FORECAST (OpenDrift / DEMO_APPROXIMATION)
+                                      └── AIS CANDIDATE PRIORITIZATION (SYNTHETIC_DEMO)
+                                            └── UNCERTAINTY & CRYPTOGRAPHIC PROVENANCE (REAL)
+                                                  └── INCIDENT REVIEW & DOSSIER EXPORT (REAL)
 ```
 
 ---
 
-## 2. Key Technical Innovations
+## 2. Key Technical Innovations & Truthful Contracts
 
-- **Radiometrically Truthful SAR Calibration**: Converts Sentinel-1 IW GRD raw digital numbers (DN) to true Sigma0 ($\sigma^0$) backscatter using calibration LUTs. Never confuses generic raster names with verified calibration.
-- **OilSeg V1 Neural Model**: Dual-channel SmallUNet trained on independent multi-region dual-pol (VV/VH) SAR scenes with zero geographic or temporal leakage. Achieves **0.9690 IoU**, **0.9842 Dice**, and **0.0000 False Positive rate** on lookalike and calm-water test scenes.
-- **Evidence Gate**: Classifies detections as `PHYSICS_ELIGIBLE`, `REVIEW_REQUIRED`, or `REJECTED_LOOKALIKE` using damping ratios and ambient wind masking.
-- **Coupled Lagrangian Trajectory Physics**: Integrates OpenDrift with HYCOM hydrodynamic currents and GFS/ERA5 10m surface winds for backward release reconstruction and forward coastal impact risk forecasting.
+- **Radiometrically Truthful SAR Calibration**: Converts Sentinel-1 IW GRD raw digital numbers (DN) to true Sigma0 ($\sigma^0$) backscatter using ESA calibration LUTs. Never confuses generic raster names with verified calibration.
+- **OilSeg V1 Synthetic Benchmark**: Dual-channel SmallUNet trained on physically simulated dual-pol (VV/VH) SAR scenes with zero geographic or temporal leakage. Provenance is **`VARUNA_OILSEG_V1_SYNTHETIC_BENCHMARK`** (`data_mode="SYNTHETIC"`). Metrics (**0.9690 IoU**, **0.9842 Dice**, **0.0000 False Positive rate**) are strictly **`SYNTHETIC_BENCHMARK_METRICS`** (`REAL_WORLD_GENERALIZATION_NOT_YET_VALIDATED`).
+- **Evidence Gate**: Classifies detections as `PHYSICS_ELIGIBLE`, `REVIEW_REQUIRED`, or `REJECTED_LOOKALIKE` using damping ratios and ambient wind masking. Indicates reduced likelihood of lookalikes under evaluated criteria.
+- **Coupled Trajectory Physics**: Supports native OpenDrift Lagrangian particle simulations with NetCDF wind/current forcing. When case-specific forcing is absent, uses `DEMO_TRAJECTORY_APPROXIMATION` explicitly tagged `SYNTHETIC_DEMO`.
 - **Strict Maritime Legal Nomenclature**: Prioritizes vessels solely as `INVESTIGATIVE_CANDIDATE` based on spatiotemporal miss distance and trajectory kinematics. Never outputs prejudicial terms like "culprit" or "guilty".
-- **Cryptographic Provenance**: SHA-256 integrity verification recorded for raw SAFE archives, calibrated rasters, neural weights, and simulation configurations.
+- **Cryptographic Provenance**: Exposes execution modes (`REAL`, `SYNTHETIC_DEMO`, `BLOCKED`) and SHA-256 integrity hashes for all outputs.
 
 ---
 
@@ -69,12 +69,15 @@ python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 The workflow is driven through `/api/v1/cases/{case_id}/workflow/*`:
 
 1. **Ingest Case**: `POST /api/v1/cases`
-2. **Attach SAR Observation**: `POST /api/v1/cases/{id}/workflow/observation`
-3. **Calibrate & Segment**: `POST /api/v1/cases/{id}/workflow/detect-oil`
-4. **Trajectory Physics**: `POST /api/v1/cases/{id}/workflow/drift-simulation`
-5. **AIS Candidate Correlation**: `POST /api/v1/cases/{id}/workflow/correlate-ais`
-6. **Workflow Status**: `GET /api/v1/cases/{id}/workflow/status`
-7. **Export Incident Dossier**: `GET /api/v1/cases/{id}/workflow/export-report`
+2. **Acquire Product**: `POST /api/v1/cases/{id}/workflow/acquire` (Truthful check; `BLOCKED` if credentials missing)
+3. **Calibrate & Preprocess**: `POST /api/v1/cases/{id}/workflow/preprocess`
+4. **Segment Slick Evidence**: `POST /api/v1/cases/{id}/workflow/analyse-slick`
+5. **Evidence Gate Selection**: `POST /api/v1/cases/{id}/workflow/select-candidate`
+6. **Trajectory Hindcast**: `POST /api/v1/cases/{id}/workflow/hindcast`
+7. **Forward Drift Forecast**: `POST /api/v1/cases/{id}/workflow/forecast`
+8. **AIS Candidate Correlation**: `POST /api/v1/cases/{id}/workflow/correlate-ais`
+9. **Workflow Status**: `GET /api/v1/cases/{id}/workflow`
+10. **Export Incident Dossier**: `GET /api/v1/cases/{id}/workflow/incident-review`
 
 ---
 
@@ -82,10 +85,10 @@ The workflow is driven through `/api/v1/cases/{case_id}/workflow/*`:
 
 All deliverables and audit manifests are preserved in `07_results/final_build/`:
 
-- [Final Build Status](07_results/final_build/FINAL_BUILD_STATUS.md) — Test counts, real vs synthetic matrix, model metrics, and CDSE status.
-- [90-Second Demo Script](07_results/final_build/DEMO_SCRIPT_90_SECONDS.md) — Exact minute-by-minute operational walkthrough.
-- [Judge Evaluation Q&A](07_results/final_build/JUDGE_QA.md) — 10 rigorous answers on science, physics, false positives, and legal neutrality.
-- [Final Incident Report (Markdown)](07_results/final_build/VARUNA_FINAL_INCIDENT_REPORT.md) — Comprehensive incident case briefing.
-- [Final Incident Report (JSON)](07_results/final_build/VARUNA_FINAL_INCIDENT_REPORT.json) — Machine-readable incident ledger.
-- [OilSeg Dataset Audit](07_results/final_build/OILSEG_DATASET_AUDIT.md) — Split isolation and leakage prevention audit.
-- [Reuse Audit](07_results/final_build/REUSE_AUDIT.md) — Pre-implementation audit of all 18 repository subsystems.
+- [Final Build Status](07_results/final_build/FINAL_BUILD_STATUS.md) — Truthfulness matrix, test counts, model metrics, and commands.
+- [90-Second Demo Script](07_results/final_build/DEMO_SCRIPT_90_SECONDS.md) — Operational decision-support walkthrough.
+- [Judge Evaluation Q&A](07_results/final_build/JUDGE_QA.md) — 10 rigorous answers on science, physics, lookalikes, and legal neutrality.
+- [Final Incident Report (Markdown)](07_results/final_build/VARUNA_FINAL_INCIDENT_REPORT.md) — Decision-support incident briefing.
+- [Final Incident Report (JSON)](07_results/final_build/VARUNA_FINAL_INCIDENT_REPORT.json) — Machine-readable incident ledger with stage execution modes.
+- [OilSeg Dataset Audit](07_results/final_build/OILSEG_DATASET_AUDIT.md) — Synthetic benchmark isolation and leakage audit.
+- [Reuse Audit](07_results/final_build/REUSE_AUDIT.md) — Pre-implementation audit of repository subsystems.

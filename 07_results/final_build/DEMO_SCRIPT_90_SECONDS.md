@@ -2,16 +2,16 @@
 
 **Target Audience:** Incident Commanders, Maritime Coast Guard, Environmental Regulators, Benchmark Evaluation Judges  
 **Time Limit:** Exactly 90 Seconds  
-**Focus:** High-cadence, decision-critical operational workflow with zero black-box assertions.
+**Focus:** Decision-support workflow with truthful execution modes and transparent uncertainty.
 
 ---
 
 ## Timeline & Narrative
 
 ```
-[00:00 - 00:15] INCIDENT SETUP & SATELLITE ACQUISITION
-[00:15 - 00:30] CALIBRATED DUAL-POL SAR & NEURAL EVIDENCE GATE
-[00:30 - 00:45] OPENDRIFT RECONSTRUCTION: HINDCAST & RECEPTOR RISK FORECAST
+[00:00 - 00:15] INCIDENT INTAKE & OBSERVATION REGISTRATION
+[00:15 - 00:30] DUAL-POL SAR CALIBRATION & EVIDENCE GATE
+[00:30 - 00:45] TRAJECTORY PHYSICS: HINDCAST & RECEPTOR RISK FORECAST
 [00:45 - 01:05] AIS TRAJECTORY CORRELATION & CANDIDATE PRIORITIZATION
 [01:05 - 01:20] UNCERTAINTY PROFILE & CRYPTOGRAPHIC PROVENANCE
 [01:20 - 01:30] EXECUTIVE DECISION BRIEF & EXPORT
@@ -19,61 +19,64 @@
 
 ---
 
-### Phase 1: [00:00 – 00:15] Incident Intake & Acquisition
+### Phase 1: [00:00 – 00:15] Incident Intake & Observation Registration
 
-**Visual:** Ops Console Dashboard (`http://localhost:8000/console/`). Select Case `CASE-20260919-WAKASHIO` or create new live case.  
-**Narrator (Operational Spoken Script):**
-> *"08:00 UTC. Coast Guard Command receives an offshore anomaly report off Pointe d'Esny. Within VARUNA, we open an incident case. The satellite pipeline queries Copernicus CDSE and identifies Sentinel-1 C-band SAR pass `S1A_IW_GRDH_1SDV_20200806T013444`. The ingestion pipeline downloads, validates archive integrity, and registers the raw dual-polarization observation into our immutable case ledger."*
+**Visual:** Ops Console Dashboard (`http://localhost:8000/console/`). Open or select case `VARUNA-CASE-2024-0410-NS01`.  
+**Narrator (Spoken Script):**
+> *"08:00 UTC. Coast Guard Command receives an offshore surface anomaly report. Inside VARUNA, we register the incident. The satellite catalog queries Copernicus CDSE for Sentinel-1 C-band SAR passes. In this demonstration environment, live external CDSE download is truthfully marked as BLOCKED due to absence of credentials, so we ingest verified local observations with complete audit logging."*
 
 ---
 
-### Phase 2: [00:15 – 00:30] Calibrated Dual-Pol SAR & Neural Evidence Gate
+### Phase 2: [00:15 – 00:30] Dual-Pol SAR Calibration & Evidence Gate
 
-**Visual:** Toggle from Quicklook to Calibrated Radiometric dB view (VV and VH channels). Highlight neural inference layer with `OIL_EVIDENCE_SCORE` confidence overlay.  
+**Visual:** Toggle to Calibrated Radiometric dB view (VV and VH channels). Highlight neural inference layer with `OIL_EVIDENCE_SCORE` confidence overlay.  
 **Narrator:**
-> *"VARUNA does not perform crude pixel thresholding. It calibrates VV and VH channels to true Sigma0 backscatter [-30 dB to 0 dB]. Our dual-channel SmallUNet model—trained exclusively on independent multi-region SAR events with zero geographic leakage—generates a pixel-wise `OIL_EVIDENCE_SCORE`. The slick geometry is extracted as GeoJSON polygons with an IoU of 0.969. The evidence gate evaluates damping ratios, wind regimes, and shape topology, formally certifying the anomaly as `PHYSICS_ELIGIBLE`."*
+> *"VARUNA converts dual-polarization backscatter into calibrated decibels. Our dual-channel SmallUNet model—trained on physical backscatter signatures—generates a pixel-wise `OIL_EVIDENCE_SCORE`. The slick geometry is vectorized into GeoJSON polygons. The evidence gate evaluates damping ratios, wind regimes, and shape morphology, certifying the candidate as `PHYSICS_ELIGIBLE` with reduced likelihood of low-wind lookalikes."*
 
 ---
 
-### Phase 3: [00:30 – 00:45] Trajectory Reconstruction: Hindcast & Forecast
+### Phase 3: [00:30 – 00:45] Trajectory Physics: Hindcast & Forecast
 
-**Visual:** Interactive Map displaying OpenDrift particles drifting backward to release source, and forward towards coastal reefs.  
+**Visual:** Interactive Map displaying particle trajectories drifting backward to probable release origin, and forward towards sensitive shorelines.  
 **Narrator:**
-> *"With verified slick geometry, VARUNA triggers OpenDrift coupled to HYCOM hydrodynamic currents and GFS 10m surface winds. First: a 24-hour backward hindcast reconstructs the probable release origin window at 20.44°S, 57.74°E between 03:00 and 06:00 UTC. Simultaneously, a forward forecast projects particle dispersion over the next 48 hours, highlighting critical shoreline strike warnings for sensitive coral lagoons in under 12 hours."*
+> *"With verified slick geometry, VARUNA initiates trajectory modeling. A backward hindcast reconstructs the probable release window over the preceding 12 hours. Simultaneously, a forward forecast projects surface transport over the next 48 hours, highlighting critical shoreline strike warnings for downstream marine habitats to guide containment boom staging."*
 
 ---
 
-### Phase 4: [00:45 – 01:05] Spatiotemporal AIS Correlation & Candidate Prioritization
+### Phase 4: [00:45 – 01:05] AIS Trajectory Correlation & Candidate Prioritization
 
 **Visual:** Spatiotemporal cone rendered over the hindcast release envelope. AIS vessel tracks crossing the region appear; candidate ranking table updates.  
 **Narrator:**
-> *"Now we locate potential sources. VARUNA queries AIS vessel trajectory feeds across the hindcast window. We never declare an unverified 'culprit'—instead, our spatiotemporal kinematics engine ranks vessels as `INVESTIGATIVE_CANDIDATE`. Here, bulk carrier MV WAKASHIO crossed the exact release coordinates during the estimated spatiotemporal window with zero course alterations. It is assigned top investigative priority with a candidate score of 0.88, while other nearby transit traffic is systematically filtered."*
+> *"Next, we search for candidate sources. VARUNA correlates AIS vessel trajectory feeds across the hindcast window. We never declare an unverified 'culprit'—instead, our kinematics engine ranks vessels strictly as `INVESTIGATIVE_CANDIDATE`. In this demo case, tanker PACIFIC EXPLORER crossed the release envelope during the estimated window and is assigned top investigative priority, while other regional traffic is systematically filtered."*
 
 ---
 
 ### Phase 5: [01:05 – 01:20] Uncertainty Profile & Cryptographic Provenance
 
-**Visual:** Click "Uncertainty & Provenance" tab. Display confidence bounds, wind/current forcing metadata, and SHA-256 hash chains.  
+**Visual:** Click "Uncertainty & Provenance" tab. Display confidence bounds, execution modes, and SHA-256 hash chains.  
 **Narrator:**
-> *"Every output is legally defensible and scientifically transparent. VARUNA quantifies the spatial uncertainty ellipse, records the meteorological forcing provenance, and computes SHA-256 cryptographic hashes for the raw SAFE archive, calibrated geotiffs, neural weights, and simulation configs. Nothing in VARUNA is an opaque black box."*
+> *"Every output is scientifically transparent. VARUNA quantifies the spatial uncertainty ellipse, records the meteorological forcing provenance, and exposes the exact execution mode—whether REAL, SYNTHETIC_DEMO, or BLOCKED—for every single stage. Nothing in VARUNA is an opaque black box."*
 
 ---
 
-### Phase 6: [01:20 – 01:30] Operational Decision Brief & Export
+### Phase 6: [01:20 – 01:30] Executive Decision Brief & Export
 
-**Visual:** Click "Export Executive Incident Report". Display clean, single-page incident summary PDF/Markdown ready for command briefing.  
+**Visual:** Click "Export Incident Dossier". Display clean, single-page incident summary dossier ready for command briefing.  
 **Narrator:**
-> *"In under 90 seconds, Coast Guard Command transitions from an ambiguous satellite signal to confirmed oil slick geometry, an urgent containment forecast, prioritized vessel candidates, and an audit-ready incident dossier. That is VARUNA: high-speed, physics-grounded maritime intelligence."*
+> *"In under 90 seconds, command teams transition from raw satellite signals to verified slick geometry, an urgent containment forecast, prioritized vessel candidates, and an audit-ready incident dossier. That is VARUNA: rapid, physics-grounded decision support."*
 
 ---
 
 ## Live Demo Quick-Reference Checklist
 
-1. **Verify Backend Running:** `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+1. **Verify Backend Running:** `python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000`
 2. **Open Browser:** `http://localhost:8000/console/`
-3. **Execute Workflow Flow:**
-   - Step 1: Ingest Case / Attach S1 observation (`POST /api/v1/cases/{id}/workflow/observation`)
-   - Step 2: Calibrate & Segment (`POST /api/v1/cases/{id}/workflow/detect-oil`)
-   - Step 3: Drift Physics Hindcast & Forecast (`POST /api/v1/cases/{id}/workflow/drift-simulation`)
-   - Step 4: AIS Correlation (`POST /api/v1/cases/{id}/workflow/correlate-ais`)
-   - Step 5: Export Report (`GET /api/v1/cases/{id}/workflow/export-report`)
+3. **Execute End-to-End Workflow:**
+   - Step 1: Ingest Case / Attach S1 observation (`POST /api/v1/cases/{id}/workflow/acquire`)
+   - Step 2: Calibrate & Preprocess (`POST /api/v1/cases/{id}/workflow/preprocess`)
+   - Step 3: Segment Oil-Like Slick (`POST /api/v1/cases/{id}/workflow/analyse-slick`)
+   - Step 4: Evidence Gate Qualification (`POST /api/v1/cases/{id}/workflow/select-candidate`)
+   - Step 5: Trajectory Hindcast (`POST /api/v1/cases/{id}/workflow/hindcast`)
+   - Step 6: Forward Drift Forecast (`POST /api/v1/cases/{id}/workflow/forecast`)
+   - Step 7: AIS Correlation (`POST /api/v1/cases/{id}/workflow/correlate-ais`)
+   - Step 8: Export Dossier (`GET /api/v1/cases/{id}/workflow/incident-review`)

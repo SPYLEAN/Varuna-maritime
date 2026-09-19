@@ -212,16 +212,19 @@ def build_canonical_dataset() -> dict[str, Any]:
 
                 record = {
                     "scene_id": scene_id,
-                    "source_dataset": "VARUNA_OILSEG_V1_CANONICAL",
-                    "source_case": cfg["source_event"],
+                    "source_dataset": "VARUNA_OILSEG_V1_SYNTHETIC_BENCHMARK",
+                    "data_mode": "SYNTHETIC",
+                    "sensor_simulation": "SENTINEL1_LIKE_DUAL_POL",
+                    "synthetic_simulation_region": cfg["region"],
                     "acquisition_timestamp": timestamp,
-                    "geography": cfg["region"],
+                    "simulated_timestamp": timestamp,
                     "vv_path": str((base_dir / vv_rel).resolve()),
                     "vh_path": str((base_dir / vh_rel).resolve()),
                     "mask_path": str((base_dir / mask_rel).resolve()),
                     "scene_category": cat,
-                    "license": "CC-BY-4.0 / Copernicus Sentinel Open Access",
+                    "license": "MIT (Synthetic Benchmark Generator, SPYLEAN/Varuna-maritime)",
                     "split": split_name,
+                    "real_world_validation": "REAL_WORLD_GENERALIZATION_NOT_YET_VALIDATED",
                 }
 
                 all_records.append(record)

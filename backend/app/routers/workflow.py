@@ -76,16 +76,30 @@ class CandidateSelectRequest(BaseModel):
     distance_to_land_km: Optional[float] = 12.0
 
 
+class AcquireRequest(BaseModel):
+    execution_mode: Optional[str] = None
+
+
+class PreprocessRequest(BaseModel):
+    execution_mode: Optional[str] = "SYNTHETIC_DEMO"
+
+
 class HindcastExecuteRequest(BaseModel):
     candidate_id: Optional[str] = None
     horizons_hours: List[int] = Field(default_factory=lambda: [6, 12, 24])
     num_particles: int = 250
+    execution_mode: Optional[str] = "SYNTHETIC_DEMO"
 
 
 class ForecastExecuteRequest(BaseModel):
     candidate_id: Optional[str] = None
     horizons_hours: List[int] = Field(default_factory=lambda: [6, 12, 24, 48])
     num_particles: int = 250
+    execution_mode: Optional[str] = "SYNTHETIC_DEMO"
+
+
+class AisCorrelateRequest(BaseModel):
+    execution_mode: Optional[str] = "SYNTHETIC_DEMO"
 
 
 def _get_workflow_state(raw_case: Dict[str, Any]) -> Dict[str, Any]:
@@ -144,8 +158,11 @@ def get_case_workflow_status(case_id: str) -> WorkflowStatusResponse:
 
 
 @router.post("/acquire")
-def acquire_satellite_product(case_id: str) -> Dict[str, Any]:
-    """Acquire the attached satellite product or verify cache/archive."""
+def acquire_satellite_product(
+    case_id: str,
+    payload: Optional[AcquireRequest] = None,
+) -> Dict[str, Any]:
+    """Acquire the attached satellite product or verify cache/archive with truthful provider checks."""
     raw_case = storage.get_case(case_id)
     if not raw_case:
         raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
@@ -159,7 +176,7 @@ def acquire_satellite_product(case_id: str) -> Dict[str, Any]:
         )
 
     obs = obs_list[-1]
-    stac_id = obs.get("stac_item_id")
+    stac_id = obs.get("stac_item_id", f"obs_{case_id}")
 
     # Ensure OBSERVATION ATTACHED is marked completed if not already
     wf = _get_workflow_state(raw_case)
@@ -171,51 +188,92 @@ def acquire_satellite_product(case_id: str) -> Dict[str, Any]:
             "data": {"stac_item_id": stac_id},
         }
 
-    # Truthful provider check
-    import os
-    has_creds = bool(os.environ.get("CDSE_USER") and os.environ.get("CDSE_PASSWORD"))
-    
-    if not has_creds:
-        # Check if pre-cached archive or local test product is available
-        cache_dir = Path("data/cache/cdse")
-        cached_zip = list(cache_dir.glob("*.zip")) if cache_dir.exists() else []
-        if cached_zip:
-            archive_path = str(cached_zip[0].resolve())
-            data = {
-                "source": "LOCAL_CDSE_CACHE",
-                "archive_path": archive_path,
-                "stac_item_id": stac_id,
-                "real_provider_validation": "CACHE_VERIFIED",
-            }
-            _advance_stage(raw_case, "PRODUCT ACQUIRED", f"Product acquired from local CDSE cache: {stac_id}", data)
-            return {"status": "SUCCESS", "message": "Product acquired from local cache", "details": data}
-        else:
-            # Per Rule 2: Report REAL_PROVIDER_VALIDATION=BLOCKED truthfully
-            data = {
-                "real_provider_validation": "BLOCKED",
-                "reason": "CDSE credentials not configured (CDSE_USER / CDSE_PASSWORD absent)",
-                "stac_item_id": stac_id,
-            }
-            _advance_stage(raw_case, "PRODUCT ACQUIRED", "CDSE download blocked: credentials unavailable", data)
-            return {
-                "status": "BLOCKED",
-                "real_provider_validation": "BLOCKED",
-                "message": "CDSE credentials unavailable. Set CDSE_USER and CDSE_PASSWORD for live download.",
-                "details": data,
-            }
+    from backend.app.services.sentinel_download import (
+        acquire_observation_product,
+        CdseCredentialsMissingError,
+        CdseAuthenticationError,
+        CdseDownloadError,
+    )
 
-    data = {
-        "source": "COPERNICUS_CDSE_LIVE",
-        "stac_item_id": stac_id,
-        "real_provider_validation": "PASS",
-    }
-    _advance_stage(raw_case, "PRODUCT ACQUIRED", f"Sentinel-1 product acquired from CDSE: {stac_id}", data)
-    return {"status": "SUCCESS", "message": "Sentinel-1 product acquired", "details": data}
+    try:
+        acq_result = acquire_observation_product(
+            case_id=case_id,
+            observation_id=stac_id,
+            observation_data=obs,
+        )
+
+        archive_path = Path(acq_result.archive_path) if acq_result.archive_path else None
+        archive_ok = archive_path and archive_path.is_file() and archive_path.stat().st_size > 0
+        manifest_ok = acq_result.manifest_valid
+        vv_ok = bool(acq_result.vv_measurement_path and Path(acq_result.vv_measurement_path).exists())
+
+        if archive_ok and manifest_ok and vv_ok and acq_result.sha256:
+            data = {
+                "execution_mode": "REAL",
+                "source": "COPERNICUS_CDSE",
+                "stac_item_id": stac_id,
+                "product_id": acq_result.product_id,
+                "archive_path": acq_result.archive_path,
+                "archive_size_bytes": acq_result.bytes_downloaded,
+                "archive_sha256": acq_result.sha256,
+                "safe_dir_path": acq_result.safe_dir_path,
+                "manifest_valid": True,
+                "vv_measurement_path": acq_result.vv_measurement_path,
+                "vh_measurement_path": acq_result.vh_measurement_path,
+                "real_provider_validation": "PASS",
+            }
+            _advance_stage(raw_case, "PRODUCT ACQUIRED", f"Product acquired and verified: {stac_id}", data)
+            return {"status": "SUCCESS", "execution_mode": "REAL", "real_provider_validation": "PASS", "details": data}
+        else:
+            reason = f"Acquisition artifacts incomplete: archive_ok={archive_ok}, manifest_ok={manifest_ok}, vv_ok={vv_ok}"
+            data = {
+                "execution_mode": "BLOCKED",
+                "real_provider_validation": "BLOCKED",
+                "reason": reason,
+                "stac_item_id": stac_id,
+            }
+            _advance_stage(raw_case, "PRODUCT ACQUIRED", f"Acquisition blocked: {reason}", data)
+            return {"status": "BLOCKED", "execution_mode": "BLOCKED", "real_provider_validation": "BLOCKED", "details": data}
+
+    except CdseCredentialsMissingError:
+        data = {
+            "execution_mode": "BLOCKED",
+            "real_provider_validation": "BLOCKED",
+            "reason": "CDSE credentials not configured (CDSE_USER / CDSE_PASS absent) and exact matching cached product archive not found",
+            "stac_item_id": stac_id,
+        }
+        _advance_stage(raw_case, "PRODUCT ACQUIRED", "CDSE download blocked: credentials unavailable", data)
+        return {
+            "status": "BLOCKED",
+            "execution_mode": "BLOCKED",
+            "real_provider_validation": "BLOCKED",
+            "message": "CDSE credentials unavailable. Configure CDSE_USER and CDSE_PASS for live download.",
+            "details": data,
+        }
+    except Exception as exc:
+        data = {
+            "execution_mode": "BLOCKED",
+            "real_provider_validation": "BLOCKED",
+            "reason": str(exc),
+            "stac_item_id": stac_id,
+        }
+        _advance_stage(raw_case, "PRODUCT ACQUIRED", f"CDSE download blocked: {exc}", data)
+        return {
+            "status": "BLOCKED",
+            "execution_mode": "BLOCKED",
+            "real_provider_validation": "BLOCKED",
+            "message": f"CDSE download blocked: {exc}",
+            "details": data,
+        }
 
 
 @router.post("/preprocess")
-def preprocess_sar_observation(case_id: str) -> Dict[str, Any]:
+def preprocess_sar_observation(
+    case_id: str,
+    payload: Optional[PreprocessRequest] = None,
+) -> Dict[str, Any]:
     """Execute VV/VH quicklook calibration and radiometric preprocessing."""
+    payload = payload or PreprocessRequest()
     raw_case = storage.get_case(case_id)
     if not raw_case:
         raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
@@ -223,12 +281,65 @@ def preprocess_sar_observation(case_id: str) -> Dict[str, Any]:
     outputs_dir = storage.get_case_outputs_dir(case_id)
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # Look for existing VV/VH in outputs or create case-calibrated dual-pol rasters
+    # Check for real input from acquired product
+    wf = _get_workflow_state(raw_case)
+    acq_data = wf.get("stages", {}).get("PRODUCT ACQUIRED", {}).get("data", {})
+    safe_dir = acq_data.get("safe_dir_path")
+    archive_path = acq_data.get("archive_path")
+    real_input_path = None
+
+    if safe_dir and Path(safe_dir).exists():
+        real_input_path = Path(safe_dir)
+    elif archive_path and Path(archive_path).exists():
+        real_input_path = Path(archive_path)
+
+    # Check case observation raw dir
+    if not real_input_path:
+        obs_list = raw_case.get("data_manifest", {}).get("satellite_observations", [])
+        if obs_list:
+            stac_id = obs_list[-1].get("stac_item_id", "")
+            raw_obs_dir = Path("data/cases") / case_id / "observations" / stac_id / "raw"
+            safes = list(raw_obs_dir.glob("*.SAFE")) if raw_obs_dir.exists() else []
+            if safes:
+                real_input_path = safes[0]
+
+    # If real input exists, execute real quicklook preprocessing
+    if real_input_path:
+        from backend.app.services.sar_quicklook import execute_quicklook_preprocessing
+        stac_id = acq_data.get("stac_item_id", f"obs_{case_id}")
+        proc_result, cal_scene, vv_db, vh_db = execute_quicklook_preprocessing(
+            case_id=case_id,
+            observation_id=stac_id,
+            source_input_path=real_input_path,
+            provenance=acq_data,
+        )
+        data = {
+            "execution_mode": "REAL",
+            "vv_path": proc_result.processed_db_geotiff_path,
+            "vh_path": proc_result.vh_processed_db_geotiff_path,
+            "radiometric_mode": proc_result.radiometric_mode,
+            "channel_order": ["VV", "VH"],
+            "source_stac_item_id": proc_result.source_stac_item_id,
+            "source_product_id": proc_result.source_product_id,
+            "source_archive_sha256": proc_result.source_archive_sha256,
+            "normalisation_bounds_db": {"VV": [-30.0, 0.0], "VH": [-35.0, -5.0]},
+        }
+        _advance_stage(raw_case, "SAR PREPROCESSED", "Real Sentinel-1 dual-polarization calibrated Sigma0 GeoTIFFs generated", data)
+        return {"status": "SUCCESS", "execution_mode": "REAL", "message": "SAR preprocessed from real observation", "details": data}
+
+    # If real input does not exist:
+    if payload.execution_mode == "REAL":
+        data = {
+            "execution_mode": "BLOCKED",
+            "reason": "Real SAFE or GeoTIFF input does not exist. Acquire product first.",
+        }
+        return {"status": "BLOCKED", "execution_mode": "BLOCKED", "message": "Real input unavailable", "details": data}
+
+    # Synthetic demo mode
     vv_path = outputs_dir / f"{case_id}_vv_sigma0_db.tif"
     vh_path = outputs_dir / f"{case_id}_vh_sigma0_db.tif"
 
     if not vv_path.exists() or not vh_path.exists():
-        # Synthesize truthful calibrated test raster pair for the case AOI
         from rasterio.transform import from_origin
         import rasterio
         lat = raw_case.get("latitude", 53.5) or 53.5
@@ -239,17 +350,21 @@ def preprocess_sar_observation(case_id: str) -> Dict[str, Any]:
         vv_arr = rng.normal(-14.0, 1.2, (256, 256)).astype(np.float32)
         vh_arr = rng.normal(-24.0, 1.5, (256, 256)).astype(np.float32)
 
-        # Introduce genuine physical slick patch
+        # Introduce slick pattern
         vv_arr[80:160, 90:170] -= 11.0
         vh_arr[80:160, 90:170] -= 8.5
 
+        # Strict truthful tags: NEVER attach fake STAC or archive SHA
         tags = {
-            "PIPELINE": "VARUNA QUICKLOOK SAR ANALYSIS",
+            "PIPELINE": "VARUNA SYNTHETIC DEMO SAR GENERATOR",
+            "DATA_MODE": "SYNTHETIC_DEMO",
             "POLARISATION": "VV",
             "RADIOMETRIC_MODE": "SIGMA0_CALIBRATED_DB",
-            "SOURCE_STAC_ITEM_ID": f"S1A_IW_GRDH_{case_id}",
-            "SOURCE_PRODUCT_ID": f"S1A_IW_GRDH_{case_id}_PROD",
-            "SOURCE_ARCHIVE_SHA256": "3a8c88f4e2b0c",
+            "SOURCE_STAC_ITEM_ID": "NONE",
+            "SOURCE_PRODUCT_ID": "NONE",
+            "SOURCE_ARCHIVE_SHA256": "NONE",
+            "EXECUTION_MODE": "SYNTHETIC_DEMO",
+            "NOTE": "Synthetic demo array for workflow demonstration. Not a Copernicus Sentinel product.",
             "PROCESSING_TIMESTAMP": now_iso,
         }
 
@@ -263,14 +378,19 @@ def preprocess_sar_observation(case_id: str) -> Dict[str, Any]:
             d.update_tags(**tags)
 
     data = {
+        "execution_mode": "SYNTHETIC_DEMO",
+        "data_mode": "SYNTHETIC_DEMO",
+        "source_stac_item_id": "NONE",
+        "source_product_id": "NONE",
+        "source_archive_sha256": "NONE",
         "vv_path": str(vv_path.resolve()),
         "vh_path": str(vh_path.resolve()),
         "radiometric_mode": "SIGMA0_CALIBRATED_DB",
         "channel_order": ["VV", "VH"],
         "normalisation_bounds_db": {"VV": [-30.0, 0.0], "VH": [-35.0, -5.0]},
     }
-    _advance_stage(raw_case, "SAR PREPROCESSED", "Dual-polarization calibrated Sigma0 dB GeoTIFFs generated", data)
-    return {"status": "SUCCESS", "message": "SAR preprocessed successfully", "details": data}
+    _advance_stage(raw_case, "SAR PREPROCESSED", "Synthetic demo dual-polarization Sigma0 GeoTIFFs generated", data)
+    return {"status": "SUCCESS", "execution_mode": "SYNTHETIC_DEMO", "message": "SAR preprocessed (SYNTHETIC_DEMO)", "details": data}
 
 
 @router.post("/analyse-slick")
@@ -301,6 +421,7 @@ def analyse_slick_segmentation(case_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Segmentation failed: {res.reason}")
 
     data = {
+        "execution_mode": "REAL",
         "model_version": res.model_version,
         "checkpoint_sha256": res.checkpoint_sha256,
         "evidence_raster_path": res.evidence_raster_path,
@@ -311,7 +432,7 @@ def analyse_slick_segmentation(case_id: str) -> Dict[str, Any]:
     }
 
     _advance_stage(raw_case, "SLICK ANALYSED", f"OilSeg V1 segmented {data['polygon_count']} candidate polygons", data)
-    return {"status": "SUCCESS", "message": "Slick analysis complete", "details": data}
+    return {"status": "SUCCESS", "execution_mode": "REAL", "message": "Slick analysis complete", "details": data}
 
 
 @router.post("/select-candidate")
@@ -333,7 +454,6 @@ def select_candidate_with_evidence_gate(
     if not features:
         raise HTTPException(status_code=400, detail="No candidate polygons available from slick analysis.")
 
-    # Select target candidate
     candidate_feat = None
     if payload.candidate_id:
         candidate_feat = next((f for f in features if f.get("id") == payload.candidate_id), None)
@@ -355,6 +475,7 @@ def select_candidate_with_evidence_gate(
     )
 
     data = {
+        "execution_mode": "REAL",
         "selected_candidate_id": cid,
         "evidence_gate_status": decision.status,
         "physics_eligible": decision.physics_eligible,
@@ -365,7 +486,7 @@ def select_candidate_with_evidence_gate(
     }
 
     _advance_stage(raw_case, "CANDIDATE SELECTED", f"Selected candidate {cid}: {decision.status}", data)
-    return {"status": "SUCCESS", "message": f"Candidate evaluated: {decision.status}", "details": data}
+    return {"status": "SUCCESS", "execution_mode": "REAL", "message": f"Candidate evaluated: {decision.status}", "details": data}
 
 
 @router.post("/hindcast")
@@ -373,7 +494,7 @@ def execute_case_hindcast(
     case_id: str,
     payload: Optional[HindcastExecuteRequest] = None,
 ) -> Dict[str, Any]:
-    """Execute OpenDrift backward hindcast to determine probable release region and window."""
+    """Execute trajectory hindcast to determine probable release region and window."""
     payload = payload or HindcastExecuteRequest()
     raw_case = storage.get_case(case_id)
     if not raw_case:
@@ -385,15 +506,23 @@ def execute_case_hindcast(
         raise HTTPException(status_code=400, detail="No candidate selected. Complete /select-candidate first.")
 
     cid = cand_data.get("selected_candidate_id", "SLICK_001")
-    geom = cand_data.get("geometry", {})
-    
-    # Coordinates for center of slick
     lat = raw_case.get("latitude", 53.5) or 53.5
     lon = raw_case.get("longitude", 2.5) or 2.5
     t0_iso = raw_case.get("observation_timestamp") or "2024-04-10T12:00:00Z"
 
-    # Derive probable release region envelope (dispersive backward transport)
-    # Wind/current backward trajectory drift over 12h horizon
+    # Check for real OpenDrift forcing
+    forcing_dir = Path("data/cases") / case_id / "forcing"
+    nc_files = list(forcing_dir.glob("*.nc")) if forcing_dir.exists() else []
+
+    if payload.execution_mode == "REAL":
+        if not nc_files:
+            data = {
+                "execution_mode": "BLOCKED",
+                "reason": "Real OpenDrift execution blocked: Metocean NetCDF forcing files (ERA5/HYCOM) not present for case.",
+            }
+            return {"status": "BLOCKED", "execution_mode": "BLOCKED", "details": data}
+
+    # Demo trajectory approximation
     drift_lon = lon - 0.08
     drift_lat = lat - 0.06
 
@@ -413,12 +542,14 @@ def execute_case_hindcast(
     release_window_end = (t0_dt - timedelta(hours=6)).isoformat().replace("+00:00", "Z")
 
     data = {
+        "execution_mode": "SYNTHETIC_DEMO",
         "candidate_id": cid,
-        "engine": "OpenDrift OceanDrift Backward Transport",
+        "engine": "DEMO_TRAJECTORY_APPROXIMATION",
         "forcing_provenance": {
-            "wind_dataset": "ECMWF ERA5 10m wind (0.25 deg)",
-            "current_dataset": "Copernicus Marine GLORYS12V1 ocean currents (0.083 deg)",
-            "forcing_mode": "REAL_ENVIRONMENTAL_FORCING",
+            "wind_dataset": "NONE",
+            "current_dataset": "NONE",
+            "forcing_mode": "SYNTHETIC_DEMO_APPROXIMATION",
+            "note": "Kinematic demonstration approximation. NOT a real OpenDrift Lagrangian simulation.",
         },
         "probable_release_region": release_envelope,
         "probable_release_window": {
@@ -429,12 +560,12 @@ def execute_case_hindcast(
         "ensemble_uncertainty": {
             "particle_count": payload.num_particles,
             "dispersion_radius_km": 4.8,
-            "confidence_level": "MODERATE_HIGH",
+            "confidence_level": "SYNTHETIC_DEMO_APPROXIMATION",
         },
     }
 
-    _advance_stage(raw_case, "HINDCAST COMPLETE", f"Hindcast complete for {cid}; release region derived", data)
-    return {"status": "SUCCESS", "message": "Hindcast complete", "details": data}
+    _advance_stage(raw_case, "HINDCAST COMPLETE", f"Hindcast demo complete for {cid}; release region derived", data)
+    return {"status": "SUCCESS", "execution_mode": "SYNTHETIC_DEMO", "message": "Hindcast complete (SYNTHETIC_DEMO)", "details": data}
 
 
 @router.post("/forecast")
@@ -442,7 +573,7 @@ def execute_case_forecast(
     case_id: str,
     payload: Optional[ForecastExecuteRequest] = None,
 ) -> Dict[str, Any]:
-    """Execute OpenDrift forward forecast answering: WHERE IS THIS SLICK MOVING NEXT?"""
+    """Execute trajectory forecast answering: WHERE IS THIS SLICK MOVING NEXT?"""
     payload = payload or ForecastExecuteRequest()
     raw_case = storage.get_case(case_id)
     if not raw_case:
@@ -452,11 +583,16 @@ def execute_case_forecast(
     lon = raw_case.get("longitude", 2.5) or 2.5
     t0_iso = raw_case.get("observation_timestamp") or "2024-04-10T12:00:00Z"
 
-    # Forward transport modeling across horizons
+    if payload.execution_mode == "REAL":
+        data = {
+            "execution_mode": "BLOCKED",
+            "reason": "Real OpenDrift forward forecast blocked: GFS / Copernicus Marine forecast NetCDF coverage not present for case.",
+        }
+        return {"status": "BLOCKED", "execution_mode": "BLOCKED", "details": data}
+
     horizons = payload.horizons_hours
     predicted_envelopes = {}
     for h in horizons:
-        # Forward drift offset
         dh_lat = lat + (h * 0.004)
         dh_lon = lon + (h * 0.006)
         r = 0.015 + (h * 0.003)
@@ -473,26 +609,32 @@ def execute_case_forecast(
                     [dh_lon - r, dh_lat - r],
                 ]],
             },
-            "threatened_coastal_resources": "Low immediate shoreline impact within 24h; heading east-northeast into open sea",
+            "threatened_coastal_resources": "Simulated horizon projection; heading east-northeast in demo mode",
         }
 
     data = {
-        "engine": "OpenDrift OpenOil Forward Drift Forecast",
+        "execution_mode": "SYNTHETIC_DEMO",
+        "engine": "DEMO_TRAJECTORY_APPROXIMATION",
         "t0_observation_time": t0_iso,
         "forcing_provenance": {
-            "forecast_winds": "NOAA Global Forecast System (GFS) 0.25 deg",
-            "forecast_currents": "Copernicus Marine GLOBAL_ANALYSIS_FORECAST_PHY_001_024",
+            "forecast_winds": "NONE",
+            "forecast_currents": "NONE",
+            "forcing_mode": "SYNTHETIC_DEMO_APPROXIMATION",
+            "note": "Kinematic demonstration approximation. NOT a real OpenDrift Lagrangian simulation.",
         },
         "horizons": predicted_envelopes,
-        "response_summary": "Slick moving east-northeast at ~0.35 m/s. High-confidence containment zone identified for horizon T+24h.",
+        "response_summary": "Simulated candidate moving east-northeast at ~0.35 m/s. Synthetic demo projection.",
     }
 
-    _advance_stage(raw_case, "FORECAST COMPLETE", "Forward drift response forecast generated across horizons", data)
-    return {"status": "SUCCESS", "message": "Forecast complete", "details": data}
+    _advance_stage(raw_case, "FORECAST COMPLETE", "Forward drift response forecast generated (SYNTHETIC_DEMO)", data)
+    return {"status": "SUCCESS", "execution_mode": "SYNTHETIC_DEMO", "message": "Forecast complete (SYNTHETIC_DEMO)", "details": data}
 
 
 @router.post("/correlate-ais")
-def correlate_vessel_tracks(case_id: str) -> Dict[str, Any]:
+def correlate_vessel_tracks(
+    case_id: str,
+    payload: Optional[AisCorrelateRequest] = None,
+) -> Dict[str, Any]:
     """Correlate AIS tracks against probable release region and window (Rule 9)."""
     raw_case = storage.get_case(case_id)
     if not raw_case:
@@ -503,8 +645,6 @@ def correlate_vessel_tracks(case_id: str) -> Dict[str, Any]:
     if not hindcast_data:
         raise HTTPException(status_code=400, detail="Hindcast not complete. Run /hindcast first.")
 
-    # Candidate vessel tracks evaluated against probable release envelope
-    # Enforces strict terminology: INVESTIGATIVE_CANDIDATE, never "culprit" or "guilty"
     candidates = [
         {
             "candidate_designation": "INVESTIGATIVE_CANDIDATE",
@@ -513,7 +653,8 @@ def correlate_vessel_tracks(case_id: str) -> Dict[str, Any]:
             "imo": "9412345",
             "vessel_type": "Crude Oil Tanker",
             "flag": "Singapore",
-            "ais_data_mode": "SYNTHETIC_DEMO AIS",
+            "ais_data_mode": "SYNTHETIC_DEMO",
+            "source_record_type": "SYNTHETIC_DEMO_TRAFFIC",
             "spatiotemporal_compatibility": "HIGH (Intersected probable release polygon within 45 min of estimated release window)",
             "investigative_priority_score": 0.84,
             "evidence_factors": [
@@ -521,7 +662,7 @@ def correlate_vessel_tracks(case_id: str) -> Dict[str, Any]:
                 "Speed reduction observed: dropped from 14.2 kn to 7.8 kn in vicinity",
                 "Heading alignment consistent with initial slick orientation streak",
             ],
-            "limitations": "AIS proximity is not proof of discharge; physical sampling or aerial sheen confirmation required.",
+            "limitations": "Synthetic demo track. Proximity is not proof of discharge; physical sampling or aerial sheen confirmation required.",
         },
         {
             "candidate_designation": "INVESTIGATIVE_CANDIDATE",
@@ -530,31 +671,34 @@ def correlate_vessel_tracks(case_id: str) -> Dict[str, Any]:
             "imo": "9678901",
             "vessel_type": "Bulk Carrier",
             "flag": "Denmark",
-            "ais_data_mode": "SYNTHETIC_DEMO AIS",
+            "ais_data_mode": "SYNTHETIC_DEMO",
+            "source_record_type": "SYNTHETIC_DEMO_TRAFFIC",
             "spatiotemporal_compatibility": "MODERATE (Track passed 4.8 km south of release envelope)",
             "investigative_priority_score": 0.52,
             "evidence_factors": [
                 "Passed within regional corridor 2.5 hours prior to observation",
                 "Constant cruising speed maintained (12.4 kn)",
             ],
-            "limitations": "Trajectory compatibility is marginal; lower investigative priority.",
+            "limitations": "Synthetic demo track. Trajectory compatibility is marginal; lower investigative priority.",
         },
     ]
 
     data = {
+        "execution_mode": "SYNTHETIC_DEMO",
+        "ais_data_mode": "SYNTHETIC_DEMO",
         "search_window": hindcast_data.get("probable_release_window", {}),
-        "ais_coverage_status": "PARTIAL (Coastal terrestrial AIS receiver network active; synthetic demo tracks loaded)",
+        "ais_coverage_status": "SYNTHETIC_DEMO (Simulated demo candidate tracks; zero observed AIS ingested)",
         "candidates": candidates,
         "nomenclature_compliance": "Enforced: INVESTIGATIVE_CANDIDATE. Zero guilt or attribution declared.",
     }
 
-    _advance_stage(raw_case, "AIS CORRELATED", f"AIS correlated: {len(candidates)} investigative candidates identified", data)
-    return {"status": "SUCCESS", "message": "AIS correlated", "details": data}
+    _advance_stage(raw_case, "AIS CORRELATED", f"AIS correlated: {len(candidates)} investigative candidates identified (SYNTHETIC_DEMO)", data)
+    return {"status": "SUCCESS", "execution_mode": "SYNTHETIC_DEMO", "message": "AIS correlated (SYNTHETIC_DEMO)", "details": data}
 
 
 @router.get("/incident-review")
 def generate_incident_review(case_id: str) -> Dict[str, Any]:
-    """Generate the complete, response-first Incident Review report (Rule 12 & 13)."""
+    """Generate the complete, response-first Incident Review report."""
     raw_case = storage.get_case(case_id)
     if not raw_case:
         raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
@@ -564,34 +708,47 @@ def generate_incident_review(case_id: str) -> Dict[str, Any]:
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    stage_execution_modes = {
+        "PRODUCT ACQUIRED": stages.get("PRODUCT ACQUIRED", {}).get("data", {}).get("execution_mode", "BLOCKED"),
+        "SAR PREPROCESSED": stages.get("SAR PREPROCESSED", {}).get("data", {}).get("execution_mode", "SYNTHETIC_DEMO"),
+        "SLICK ANALYSED": stages.get("SLICK ANALYSED", {}).get("data", {}).get("execution_mode", "REAL"),
+        "CANDIDATE SELECTED": stages.get("CANDIDATE SELECTED", {}).get("data", {}).get("execution_mode", "REAL"),
+        "HINDCAST COMPLETE": stages.get("HINDCAST COMPLETE", {}).get("data", {}).get("execution_mode", "SYNTHETIC_DEMO"),
+        "FORECAST COMPLETE": stages.get("FORECAST COMPLETE", {}).get("data", {}).get("execution_mode", "SYNTHETIC_DEMO"),
+        "AIS CORRELATED": stages.get("AIS CORRELATED", {}).get("data", {}).get("execution_mode", "SYNTHETIC_DEMO"),
+    }
+
     review_report = {
         "report_id": f"VARUNA-REPORT-{case_id.upper()}",
         "generated_at_utc": now_iso,
         "case_id": case_id,
         "case_name": raw_case.get("name", "Operational Maritime Pollution Incident"),
+        "stage_execution_modes": stage_execution_modes,
         "geography": {
             "region": raw_case.get("region", "Global Maritime Domain"),
             "latitude": raw_case.get("latitude"),
             "longitude": raw_case.get("longitude"),
         },
         "response_intelligence": {
-            "what_was_observed": "Calibrated dual-polarization Sentinel-1 SAR backscatter depression consistent with mineral oil dampening.",
+            "what_was_observed": "Dual-polarization SAR backscatter depression evaluated for oil-like evidence.",
             "slick_characterisation": stages.get("SLICK ANALYSED", {}).get("data", {}).get("statistics", {}),
             "evidence_gate_qualification": stages.get("CANDIDATE SELECTED", {}).get("data", {}).get("evidence_gate_status", "PHYSICS_ELIGIBLE"),
-            "where_is_it_moving": stages.get("FORECAST COMPLETE", {}).get("data", {}).get("response_summary", "Forward drift trajectory modeled under GFS winds and CMEMS currents."),
-            "resources_at_risk": "Coastal shoreline 45 km downstream monitored; low nearshore impact in next 24h.",
+            "lookalike_assessment": "Candidate passed the current evidence gate; reduced likelihood of biogenic/wind lookalike under evaluated criteria.",
+            "where_is_it_moving": stages.get("FORECAST COMPLETE", {}).get("data", {}).get("response_summary", "Drift projection evaluated."),
+            "resources_at_risk": "Coastal shoreline downstream monitored; containment staging advised.",
             "probable_origin": stages.get("HINDCAST COMPLETE", {}).get("data", {}).get("probable_release_window", {}),
             "investigative_candidates": stages.get("AIS CORRELATED", {}).get("data", {}).get("candidates", []),
         },
         "uncertainty_and_limitations": {
-            "model_uncertainty": "Empirical OIL_EVIDENCE_SCORE from OilSeg V1 SmallUNet. Not a calibrated Bayesian posterior.",
-            "atmospheric_uncertainty": "Metocean forcing resolution (ERA5 0.25 deg) may smooth local wind shear gradients.",
-            "ais_limitations": "AIS presence or absence does not establish culpability. Vessel ranking represents investigative priority only.",
+            "model_uncertainty": "Empirical OIL_EVIDENCE_SCORE from SmallUNet. Real-world generalization not yet validated.",
+            "atmospheric_uncertainty": "Metocean forcing resolution and local wind shear gradients may affect drift precision.",
+            "ais_limitations": "AIS proximity is not proof of discharge. Candidates represent investigative prioritization only.",
         },
         "provenance_chain": {
-            "pipeline_version": "Varuna 2.4.0 (Final 24h Build)",
+            "pipeline_version": "Varuna 2.4.0 (Truthfulness Patched Build)",
             "model_checkpoint_sha256": stages.get("SLICK ANALYSED", {}).get("data", {}).get("checkpoint_sha256"),
             "case_created_at": raw_case.get("created_at"),
+            "stage_execution_modes": stage_execution_modes,
             "completed_stages": [s for s, v in stages.items() if v.get("completed")],
         },
     }
@@ -600,6 +757,6 @@ def generate_incident_review(case_id: str) -> Dict[str, Any]:
     return review_report
 
 
-# Add missing timedelta import
+# Module level imports
 from datetime import timedelta
 import numpy as np

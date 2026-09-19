@@ -1,12 +1,11 @@
 {
   "report_id": "VARUNA-REPORT-FINAL-20260919",
-  "pipeline_version": "Varuna 2.4.0 (Final 24h Build)",
-  "build_commit": "1836737",
-  "generated_at_utc": "2026-09-19T13:30:00Z",
+  "pipeline_version": "Varuna 2.4.0 (Truthfulness Patched Build)",
+  "generated_at_utc": "2026-09-19T15:45:00Z",
   "case_metadata": {
     "case_id": "VARUNA-CASE-2024-0410-NS01",
     "case_name": "North Sea Operational Maritime Pollution Incident",
-    "incident_type": "SURFACE_MINERAL_OIL_SLICK",
+    "incident_type": "SURFACE_SLICK_ANOMALY",
     "geography": {
       "region": "North Sea Offshore Shipping Corridor",
       "latitude": 53.5,
@@ -16,83 +15,95 @@
     },
     "observation_timestamp_utc": "2024-04-10T06:23:14Z"
   },
+  "stage_execution_modes": {
+    "PRODUCT_ACQUISITION": "BLOCKED",
+    "SAR_PREPROCESSING": "SYNTHETIC_DEMO",
+    "SLICK_ANALYSIS": "REAL",
+    "EVIDENCE_GATE": "REAL",
+    "HINDCAST_TRAJECTORY": "SYNTHETIC_DEMO",
+    "FORECAST_TRAJECTORY": "SYNTHETIC_DEMO",
+    "AIS_CORRELATION": "SYNTHETIC_DEMO",
+    "INCIDENT_REVIEW": "REAL"
+  },
   "satellite_observation_provenance": {
-    "provider": "Copernicus Data Space Ecosystem (CDSE)",
-    "mission": "Sentinel-1A",
-    "instrument_mode": "IW (Interferometric Wide Swath)",
-    "product_type": "GRD (Ground Range Detected High-Resolution)",
-    "stac_item_id": "S1A_IW_GRDH_1SDV_20240410T062314_20240410T062339_053367_0679BC_E123",
-    "product_id": "S1A_IW_GRDH_1SDV_20240410T062314_20240410T062339_053367_0679BC_E123.SAFE",
-    "archive_sha256": "3a8c88f4e2b0c9d8e7a6f5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4",
-    "real_provider_validation": "BLOCKED (CDSE credentials unavailable in validation environment; authentic cache/fixture fallback used)",
+    "execution_mode": "SYNTHETIC_DEMO",
+    "real_provider_validation": "BLOCKED",
+    "blocker_reason": "CDSE credentials unavailable in validation environment (CDSE_USER / CDSE_PASS absent) and exact matching product archive not in cache",
+    "source_stac_item_id": "NONE",
+    "source_product_id": "NONE",
+    "source_archive_sha256": "NONE",
     "radiometric_calibration": {
       "mode": "SIGMA0_CALIBRATED_DB",
       "vv_range_db": [-30.0, 0.0],
       "vh_range_db": [-35.0, -5.0],
-      "calibration_standard": "ESA Sentinel-1 Calibration Look-Up Table (LUT)",
-      "filter_method": "Lee Speckle MMSE (5x5 kernel)"
+      "data_mode": "SYNTHETIC_DEMO",
+      "note": "Synthetic demo array for pipeline demonstration; not a genuine Copernicus Sentinel-1 acquisition"
     }
   },
   "oilseg_v1_model": {
+    "execution_mode": "REAL",
     "architecture": "SmallUNet",
     "model_version": "varuna-oilseg-v1-smallunet",
     "checkpoint_path": "models/oil_detection/varuna_oilseg_v1_smallunet.pt",
     "checkpoint_sha256": "dda8fac84e6ceedcef76889acc78f8c6eb07d2d586ff00bf4dfbbf656da46e0b",
-    "dataset_version": "oilseg_v1_canonical",
+    "dataset_provenance": "VARUNA_OILSEG_V1_SYNTHETIC_BENCHMARK",
+    "data_mode": "SYNTHETIC",
+    "sensor_simulation": "SENTINEL1_LIKE_DUAL_POL",
     "input_channels": 2,
     "channel_order": ["VV", "VH"],
     "validation_metrics": {
-      "test_iou": 0.9690,
-      "test_dice": 0.9842,
-      "test_precision": 0.9801,
-      "test_recall": 0.9885,
+      "metric_scope": "SYNTHETIC_BENCHMARK_METRICS",
+      "real_world_generalization": "REAL_WORLD_GENERALIZATION_NOT_YET_VALIDATED",
+      "synthetic_test_iou": 0.9690,
+      "synthetic_test_dice": 0.9842,
+      "synthetic_test_precision": 0.9801,
+      "synthetic_test_recall": 0.9885,
       "lookalike_false_positive_scene_rate": 0.0,
       "no_oil_false_positive_scene_rate": 0.0
     }
   },
   "slick_geometry_and_evidence": {
+    "execution_mode": "REAL",
     "total_detected_oil_area_km2": 1.242,
-    "total_detected_oil_area_m2": 1242000.0,
     "slick_pixel_count": 12420,
-    "oil_fraction": 0.01895,
     "mean_oil_evidence_score": 0.8842,
     "max_oil_evidence_score": 0.9851,
-    "decision_threshold": 0.50,
     "candidate_morphology": {
       "solidity": 0.782,
       "elongation": 2.351,
-      "orientation_deg": 68.4,
-      "morphological_interpretation": "Elongated continuous surface slick aligned with wind-shear axis"
+      "interpretation": "Elongated continuous surface anomaly streak"
     },
     "evidence_gate": {
+      "execution_mode": "REAL",
       "status": "PHYSICS_ELIGIBLE",
       "physics_eligible": true,
-      "segmentation_score": 0.924,
-      "morphology_score": 0.880,
-      "environmental_score": 0.950,
-      "lookalike_risk_score": 0.080,
+      "lookalike_assessment": "Candidate passed the current evidence gate; reduced likelihood of biogenic/wind lookalike under evaluated criteria",
       "overall_confidence": 0.882,
-      "recommendation": "Eligible for physics simulation. Automatically initiate OpenDrift hindcast and forward response forecast."
+      "recommendation": "Candidate slick passed the current evidence gate. Eligible for trajectory physics evaluation."
     }
   },
   "response_intelligence": {
-    "q1_what_was_observed": "Calibrated dual-polarization Sentinel-1 SAR backscatter depression displaying 11.2 dB VV damping and 8.7 dB VH damping over an area of 1.24 km2.",
-    "q2_is_it_plausibly_oil": "YES (PHYSICS_ELIGIBLE). Strong backscatter suppression, high dual-pol contrast, and elongated streak morphology rule out biogenic film and low-wind false positives.",
-    "q3_where_is_it_moving": "Moving East-Northeast (068 deg) at ~0.32 m/s driven by 12 kn Southwesterly winds (ERA5) and North Sea tidal residual currents (GLORYS).",
-    "q4_resources_at_risk": "Threatened coastal habitats: Dogger Bank protected marine zone (48 km ENE) is within the 48h trajectory cone. Immediate nearshore shoreline impact in next 24h is LOW.",
-    "q5_probable_origin": {
-      "engine": "OpenDrift OceanDrift Backward Dispersion Simulation",
-      "ensemble_particles": 250,
-      "horizon_evaluated": "T-12h to T-18h",
-      "probable_release_window_utc": {
-        "start": "2024-04-09T18:00:00Z",
-        "end": "2024-04-10T00:00:00Z",
-        "duration_hours": 6.0
+    "what_was_observed": "Dual-polarization SAR backscatter depression displaying 11.2 dB VV damping and 8.7 dB VH damping over an area of 1.24 km2.",
+    "is_it_plausibly_oil": "YES (PHYSICS_ELIGIBLE). Candidate passed current evidence gate with high confidence (0.882); reduced likelihood of biogenic or low-wind lookalikes.",
+    "where_is_it_moving": "Simulated trajectory projection heading East-Northeast (068 deg) at ~0.32 m/s under demonstration drift kinematics.",
+    "resources_at_risk": "Downstream marine zones monitored. Protective booming staging recommended.",
+    "probable_origin": {
+      "execution_mode": "SYNTHETIC_DEMO",
+      "engine": "DEMO_TRAJECTORY_APPROXIMATION",
+      "forcing_provenance": {
+        "forcing_mode": "SYNTHETIC_DEMO_APPROXIMATION",
+        "wind_dataset": "NONE",
+        "current_dataset": "NONE",
+        "note": "Kinematic demonstration approximation. NOT a real OpenDrift Lagrangian simulation."
       },
-      "probable_release_centroid": [2.42, 53.44],
+      "probable_release_window_utc": {
+        "start": "2024-04-09T12:23:14Z",
+        "end": "2024-04-10T00:23:14Z",
+        "duration_hours": 12.0
+      },
       "dispersion_radius_km": 4.8
     },
-    "q6_consistent_sources": [
+    "investigative_candidates": [
       {
         "candidate_designation": "INVESTIGATIVE_CANDIDATE",
         "vessel_name": "PACIFIC EXPLORER",
@@ -100,15 +111,17 @@
         "imo": "9412345",
         "vessel_type": "Crude Oil Tanker",
         "flag": "Singapore",
-        "ais_data_mode": "SYNTHETIC_DEMO AIS",
+        "execution_mode": "SYNTHETIC_DEMO",
+        "ais_data_mode": "SYNTHETIC_DEMO",
+        "source_record_type": "SYNTHETIC_DEMO_TRAFFIC",
+        "spatiotemporal_compatibility": "HIGH (Intersected probable release envelope within 45 min of estimated release window)",
         "investigative_priority_score": 0.84,
-        "spatial_cpa_km": 1.2,
-        "temporal_alignment_min": 45,
         "evidence_factors": [
-          "Crossed centroid of probable release envelope at 2024-04-09T21:15:00Z",
-          "Speed anomaly: speed dropped from 14.2 kn to 7.8 kn in release corridor",
-          "Track heading (065 deg) matches initial slick elongation azimuth"
-        ]
+          "Closest point of approach: 1.2 km from release envelope centroid",
+          "Speed reduction observed: dropped from 14.2 kn to 7.8 kn in vicinity",
+          "Heading alignment consistent with initial slick orientation streak"
+        ],
+        "limitations": "Synthetic demo track. Proximity is not proof of discharge; physical sampling or aerial sheen confirmation required."
       },
       {
         "candidate_designation": "INVESTIGATIVE_CANDIDATE",
@@ -117,27 +130,30 @@
         "imo": "9678901",
         "vessel_type": "Bulk Carrier",
         "flag": "Denmark",
-        "ais_data_mode": "SYNTHETIC_DEMO AIS",
+        "execution_mode": "SYNTHETIC_DEMO",
+        "ais_data_mode": "SYNTHETIC_DEMO",
+        "source_record_type": "SYNTHETIC_DEMO_TRAFFIC",
+        "spatiotemporal_compatibility": "MODERATE (Track passed 4.8 km south of release envelope)",
         "investigative_priority_score": 0.52,
-        "spatial_cpa_km": 4.8,
-        "temporal_alignment_min": 140,
         "evidence_factors": [
-          "Passed through regional corridor 2.3 hours prior to estimated release",
-          "Constant cruising speed (12.4 kn) with no heading deviation"
-        ]
+          "Passed within regional corridor 2.5 hours prior to observation",
+          "Constant cruising speed maintained (12.4 kn)"
+        ],
+        "limitations": "Synthetic demo track. Trajectory compatibility is marginal; lower investigative priority."
       }
-    ],
-    "q7_uncertainty_and_limitations": {
-      "model_uncertainty": "Empirical OIL_EVIDENCE_SCORE from OilSeg V1 SmallUNet. Values represent relative backscatter damping confidence, not calibrated Bayesian probabilities.",
-      "metocean_forcing_uncertainty": "ERA5 atmospheric model spatial resolution (0.25 deg, ~25 km) smooths localized sub-mesoscale coastal wind gusts.",
-      "ais_attribution_limitation": "AIS tracking is purely circumstantial spatiotemporal evidence. AIS presence or absence does not establish legal responsibility. Physical chemical sampling or aerial verification required."
-    }
+    ]
   },
-  "cryptographic_audit_trail": {
-    "train_manifest_sha256": "e44fc150b2386b9b052d3eeb47ddcae4c424b19d9b487a85a2b3bb4c7a262e64",
-    "val_manifest_sha256": "1bc1736c93abfebf7db5fcdcbb20a4933cd147bc7e96ea19442639f899fbd7cb",
-    "test_manifest_sha256": "2d1b4b97795d132a765b5c75fb11eccb56c8bc140b1ab9bab9aaa97ba33feb08",
+  "uncertainty_and_limitations": {
+    "detection_uncertainty": "Empirical OIL_EVIDENCE_SCORE from SmallUNet. Real-world generalization not yet validated.",
+    "drift_uncertainty": "Demo trajectory approximation. In real operations, coupled OpenDrift with audited NetCDF wind/current forcing is mandatory.",
+    "attribution_uncertainty": "Strictly investigative candidate prioritization. AIS presence alone never constitutes proof of discharge."
+  },
+  "provenance_chain": {
+    "pipeline_version": "Varuna 2.4.0 (Truthfulness Patched Build)",
     "model_checkpoint_sha256": "dda8fac84e6ceedcef76889acc78f8c6eb07d2d586ff00bf4dfbbf656da46e0b",
-    "r001_quarantine_status": "QUARANTINED (training_allowed=False, zero benchmark leakage)"
+    "dataset_provenance": "VARUNA_OILSEG_V1_SYNTHETIC_BENCHMARK",
+    "real_provider_status": "BLOCKED",
+    "real_opendrift_status": "BLOCKED (Synthetic demo approximation used)",
+    "real_ais_status": "BLOCKED (Synthetic demo traffic used)"
   }
 }
