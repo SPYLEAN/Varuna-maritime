@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import analysis, cases, evidence, files, investigation, satellite
+from .routers import analysis, cases, evidence, files, investigation, satellite, workflow
 from .routers.investigation import router as investigation_router, job_router, get_r001_dir
 
 from backend.app.config import VARUNA_VERSION
@@ -30,6 +30,7 @@ app.include_router(cases.router, prefix="/api/v1")
 app.include_router(evidence.router, prefix="/api/v1")
 app.include_router(satellite.router, prefix="/api/v1")
 app.include_router(analysis.router, prefix="/api/v1")
+app.include_router(workflow.router, prefix="/api/v1")
 app.include_router(files.router, prefix="/api/v1")
 
 # Storage & Component Analysis Routers (Mounted on root /cases for backward compatibility)
@@ -37,6 +38,7 @@ app.include_router(cases.router)
 app.include_router(evidence.router)
 app.include_router(satellite.router)
 app.include_router(analysis.router)
+app.include_router(workflow.router)
 app.include_router(files.router)
 
 # Unified Investigation Engine & Live Prototype Routers (Mounted on /api/cases & /api/investigations)

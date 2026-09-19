@@ -204,6 +204,18 @@ def attach_satellite_observation(
     if not raw_case.get("observation_timestamp") and obs_model.datetime:
         raw_case["observation_timestamp"] = obs_model.datetime
 
+    # Update workflow state
+    wf = raw_case.setdefault("workflow", {})
+    stages = wf.setdefault("stages", {})
+    stages["OBSERVATION ATTACHED"] = {
+        "completed": True,
+        "timestamp": now_iso,
+        "summary": f"Sentinel-1 observation attached: {obs_model.stac_item_id}",
+        "data": {"stac_item_id": obs_model.stac_item_id},
+    }
+    wf["current_stage"] = "OBSERVATION ATTACHED"
+    wf["last_updated_utc"] = now_iso
+
     storage.save_case(raw_case)
 
     return obs_model
