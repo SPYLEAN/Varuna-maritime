@@ -29,6 +29,8 @@ from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
+from backend.app.config import CDSE_USER, CDSE_PASS
+
 # CDSE Keycloak and OData endpoints
 TOKEN_URL: str = (
     "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
@@ -145,15 +147,18 @@ def get_access_token(
     """Obtain short-lived CDSE bearer token via Keycloak password grant.
 
     Reads CDSE_USER / CDSE_PASS (or COPERNICUS_USER / COPERNICUS_PASS) from environment
-    if not explicitly passed.
+    or config if not explicitly passed.
     """
-    u = user or os.environ.get("CDSE_USER") or os.environ.get("COPERNICUS_USER")
-    p = password or os.environ.get("CDSE_PASS") or os.environ.get("COPERNICUS_PASS")
+    u = user or os.environ.get("CDSE_USER") or os.environ.get("COPERNICUS_USER") or CDSE_USER
+    p = password or os.environ.get("CDSE_PASS") or os.environ.get("COPERNICUS_PASS") or CDSE_PASS
 
     if not u or not p:
         raise CdseCredentialsMissingError(
             "CDSE credentials missing: please configure CDSE_USER and CDSE_PASS in environment or .env"
         )
+
+    print("[CDSE] authenticating", flush=True)
+    logger.info("[CDSE] authenticating")
 
     owns_session = session is None
     sess = session or make_session()
@@ -183,6 +188,9 @@ def get_access_token(
     token = payload.get("access_token")
     if not token:
         raise CdseAuthenticationError("CDSE token response missing 'access_token' property.")
+
+    print("[CDSE] authentication successful", flush=True)
+    logger.info("[CDSE] authentication successful")
     return str(token)
 
 
@@ -279,10 +287,40 @@ def download_product(
         # 206 Partial Content indicates range resume accepted
         resuming = existing_bytes > 0 and response.status_code == 206
         mode = "ab" if resuming else "wb"
+
+        print("[DOWNLOAD] started", flush=True)
+        logger.info(f"[DOWNLOAD] started for {product.name}")
+
+        total_length = response.headers.get("Content-Length")
+        total_bytes = (
+            int(total_length) + (existing_bytes if resuming else 0)
+            if total_length and total_length.isdigit()
+            else product.size
+        )
+
+        bytes_since_log = 0
+        current_downloaded = existing_bytes
+        LOG_INTERVAL_BYTES = 50 * 1024 * 1024  # 50 MB
+
         with dest_path.open(mode) as fh:
             for chunk in response.iter_content(chunk_size=chunk_size):
                 if chunk:
                     fh.write(chunk)
+                    current_downloaded += len(chunk)
+                    bytes_since_log += len(chunk)
+                    if bytes_since_log >= LOG_INTERVAL_BYTES:
+                        mb = current_downloaded // (1024 * 1024)
+                        if total_bytes and total_bytes > 0:
+                            pct = (current_downloaded / total_bytes) * 100
+                            print(f"[DOWNLOAD] {mb} MB downloaded ({pct:.1f}%)", flush=True)
+                            logger.info(f"[DOWNLOAD] {mb} MB downloaded ({pct:.1f}%)")
+                        else:
+                            print(f"[DOWNLOAD] {mb} MB downloaded", flush=True)
+                            logger.info(f"[DOWNLOAD] {mb} MB downloaded")
+                        bytes_since_log = 0
+
+        print("[DOWNLOAD] complete", flush=True)
+        logger.info(f"[DOWNLOAD] complete: {dest_path.stat().st_size // (1024 * 1024)} MB")
     except Exception as exc:
         raise CdseDownloadError(f"Download failed for {product.name}: {exc}") from exc
     finally:
@@ -322,6 +360,8 @@ def acquire_observation_product(
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     stac_id = observation_data.get("stac_item_id") or observation_data.get("id") or ""
+    print("[CDSE] resolving Sentinel product", flush=True)
+    logger.info(f"[CDSE] resolving Sentinel product for {stac_id}")
     product_target = resolve_product_from_observation(observation_data)
 
     # Obtain token if not provided
@@ -366,7 +406,11 @@ def acquire_observation_product(
             timeout=timeout,
         )
         bytes_downloaded = archive_path.stat().st_size
+        print("[HASH] computing SHA256", flush=True)
+        logger.info(f"[HASH] computing SHA256 for {archive_path.name}")
         sha256_hash = compute_file_sha256(archive_path)
+        print("[HASH] complete", flush=True)
+        logger.info(f"[HASH] complete: {sha256_hash}")
 
         safe_dir_path = None
         manifest_valid = False
@@ -374,6 +418,8 @@ def acquire_observation_product(
         vh_path = None
 
         if extract_safe and zipfile.is_zipfile(archive_path):
+            print("[SAFE] extracting", flush=True)
+            logger.info(f"[SAFE] extracting archive {archive_path.name}")
             with zipfile.ZipFile(archive_path, "r") as zf:
                 zf.extractall(raw_dir)
             # Find extracted .SAFE directory
@@ -384,6 +430,8 @@ def acquire_observation_product(
                 manifest_file = safe_p / "manifest.safe"
                 if manifest_file.exists() and manifest_file.stat().st_size > 0:
                     manifest_valid = True
+                    print("[SAFE] manifest.safe verified", flush=True)
+                    logger.info("[SAFE] manifest.safe verified")
                 vv_files = list(safe_p.glob("measurement/*-vv-*")) or list(safe_p.glob("*-vv-*"))
                 if vv_files:
                     vv_path = str(vv_files[0])

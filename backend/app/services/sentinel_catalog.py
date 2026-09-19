@@ -26,7 +26,7 @@ from pystac_client.exceptions import APIError
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CDSE_STAC_URL = "https://stac.dataspace.copernicus.eu/v1/"
+from backend.app.config import DEFAULT_CDSE_STAC_URL, VARUNA_CDSE_STAC_URL
 COLLECTION_SENTINEL1_GRD = "sentinel-1-grd"
 
 
