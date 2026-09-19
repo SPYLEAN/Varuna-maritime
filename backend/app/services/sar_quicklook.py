@@ -39,8 +39,14 @@ DEFAULT_DB_EPS: float = 1e-10
 # Valid radiometric calibration modes
 RADIOMETRIC_MODE_SIGMA0_LUT = "SIGMA0_LUT_CALIBRATED"
 RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK = "MEASUREMENT_INTENSITY_FALLBACK"
-RADIOMETRIC_MODE_COG_PRECALIBRATED = "COG_PRECALIBRATED"
+RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED = "PROVIDER_PRECALIBRATED"
+RADIOMETRIC_MODE_COG_PRECALIBRATED = RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED  # backward compatibility alias
 RADIOMETRIC_MODE_UNKNOWN = "UNKNOWN"
+
+
+class GeoreferenceUnavailableError(Exception):
+    """Raised when spatial georeferencing (CRS or affine transform) cannot be truthfully recovered."""
+    pass
 
 
 class CalibratedScene(NamedTuple):
@@ -75,6 +81,7 @@ class PreprocessedSceneResult(BaseModel):
     vh_processed_db_geotiff_path: Optional[str] = None
     output_sha256: str = ""
     vh_output_sha256: Optional[str] = None
+    dualpol_aligned: bool = False
     processing_duration_seconds: float = 0.0
     started_at: str
     completed_at: str
@@ -177,16 +184,35 @@ def _acquisition_mode(safe: Path, xs: Any) -> str:
 
 
 def _georef_from_dataarray(da: Any) -> Tuple[Affine, CRS]:
-    """Recover affine transform and CRS from an xarray DataArray."""
+    """Recover affine transform and CRS from an xarray DataArray.
+
+    Fails explicitly with GeoreferenceUnavailableError if truthful CRS or transform
+    cannot be recovered. Never fabricates Affine.identity() or EPSG:4326.
+    """
     try:
         import rioxarray  # noqa: F401
-        transform = da.rio.transform(recalc=True)
+        if not hasattr(da, "rio"):
+            raise GeoreferenceUnavailableError("DataArray lacks rio accessor for spatial georeferencing")
+
         crs = da.rio.crs
-        if crs is not None:
-            return transform, crs
-    except Exception:
-        pass
-    return Affine.identity(), CRS.from_epsg(4326)
+        if crs is None:
+            raise GeoreferenceUnavailableError("DataArray rio.crs is None; truthful CRS unavailable")
+
+        transform = da.rio.transform(recalc=True)
+        if transform is None:
+            raise GeoreferenceUnavailableError("DataArray rio.transform is None; truthful transform unavailable")
+
+        # Refuse to accept default identity transform with EPSG:4326 when no spatial coordinates exist
+        if transform == Affine.identity() and crs.to_epsg() == 4326 and "x" not in getattr(da, "coords", {}) and "longitude" not in getattr(da, "coords", {}):
+            raise GeoreferenceUnavailableError("DataArray contains unreferenced default identity transform")
+
+        return transform, crs
+    except GeoreferenceUnavailableError:
+        raise
+    except Exception as exc:
+        raise GeoreferenceUnavailableError(
+            f"Failed to recover spatial georeferencing from DataArray: {exc}"
+        ) from exc
 
 
 def read_grd_measurement(
@@ -227,7 +253,9 @@ def read_grd_measurement(
             crs = gcp_crs or CRS.from_epsg(4326)
         else:
             full_transform = ds.transform
-            crs = ds.crs or CRS.from_epsg(4326)
+            crs = ds.crs
+            if crs is None:
+                raise GeoreferenceUnavailableError(f"Measurement GeoTIFF {meas_file} contains no valid CRS")
 
         if bbox is not None:
             min_lon, min_lat, max_lon, max_lat = bbox
@@ -330,8 +358,14 @@ def read_sar_raster(
     polarisation: str = "VV",
     *,
     bbox: Optional[Tuple[float, float, float, float]] = None,
+    radiometric_mode: Optional[str] = None,
 ) -> CalibratedScene:
-    """Read a SAR raster file (GeoTIFF, COG, or SAFE directory) as intensity."""
+    """Read a SAR raster file (GeoTIFF, COG, or SAFE directory) as intensity.
+
+    Generic rasters default to radiometric_mode='UNKNOWN' unless the caller or
+    GeoTIFF metadata explicitly declares 'PROVIDER_PRECALIBRATED'.
+    Does not determine physical semantics from pixel magnitude.
+    """
     path = Path(raster_path)
     pol = polarisation.lower()
 
@@ -351,10 +385,27 @@ def read_sar_raster(
             crs = ds.gcps[1] or CRS.from_epsg(4326)
         else:
             transform = ds.transform
-            crs = ds.crs or CRS.from_epsg(4326)
+            crs = ds.crs
+            if crs is None:
+                raise GeoreferenceUnavailableError(f"Raster {path} contains no valid CRS")
 
         data = ds.read(1).astype(np.float64)
-        intensity = np.where(data > 0, data**2 if np.max(data) > 100.0 else data, 0.0)
+        intensity = np.maximum(data, 0.0)
+
+        tags = ds.tags()
+        tag_mode = tags.get("RADIOMETRIC_MODE", "")
+        if radiometric_mode is not None:
+            final_mode = radiometric_mode
+        elif tag_mode in (
+            RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED,
+            RADIOMETRIC_MODE_SIGMA0_LUT,
+            RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK,
+        ):
+            final_mode = tag_mode
+        elif tags.get("PRECALIBRATED", "").lower() in ("true", "1", "yes") or "sigma0" in path.stem.lower():
+            final_mode = RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
+        else:
+            final_mode = RADIOMETRIC_MODE_UNKNOWN
 
     vh_available = False
     parent = path.parent
@@ -368,7 +419,7 @@ def read_sar_raster(
         crs=crs,
         polarisation=polarisation.upper(),
         vh_available=vh_available,
-        radiometric_mode=RADIOMETRIC_MODE_COG_PRECALIBRATED,
+        radiometric_mode=final_mode,
     )
 
 
@@ -406,6 +457,25 @@ def land_mask_from_coastlines(
         all_touched=True,
     )
     return np.asarray(burned, dtype=bool)
+
+
+def verify_dualpol_alignment(vv_scene: CalibratedScene, vh_scene: CalibratedScene) -> bool:
+    """Verify VV and VH raster spatial alignment (dimensions, CRS, transform) before dual-pol ML use."""
+    if vv_scene.sigma0.shape != vh_scene.sigma0.shape:
+        raise ValueError(
+            f"Dual-pol alignment failure: VV dimensions {vv_scene.sigma0.shape} != VH dimensions {vh_scene.sigma0.shape}"
+        )
+    if str(vv_scene.crs) != str(vh_scene.crs):
+        raise ValueError(
+            f"Dual-pol alignment failure: VV CRS {vv_scene.crs} != VH CRS {vh_scene.crs}"
+        )
+    if vv_scene.transform != vh_scene.transform:
+        for a, b in zip(vv_scene.transform, vh_scene.transform):
+            if abs(a - b) > 1e-5:
+                raise ValueError(
+                    f"Dual-pol alignment failure: VV transform {vv_scene.transform} != VH transform {vh_scene.transform}"
+                )
+    return True
 
 
 def execute_quicklook_preprocessing(
@@ -452,6 +522,9 @@ def execute_quicklook_preprocessing(
         else:
             scene = read_sar_raster(source_input_path, polarisation=polarisation)
 
+        print(f"[SAR] processing {scene.polarisation}", flush=True)
+        logger.info(f"[SAR] processing {scene.polarisation}")
+
         h_dim, w_dim = scene.sigma0.shape
 
         # 2. Apply Lee filter
@@ -461,6 +534,7 @@ def execute_quicklook_preprocessing(
         sigma0_db = to_db(filtered_sigma0)
 
         # 4. Land mask if provided
+        land_mask = None
         if coastlines_path:
             land_mask = land_mask_from_coastlines(
                 (h_dim, w_dim), scene.transform, scene.crs, coastlines_path
@@ -487,7 +561,13 @@ def execute_quicklook_preprocessing(
                 TERRAIN_CORRECTION="NONE",
                 POLARISATION=scene.polarisation,
                 RADIOMETRIC_MODE=scene.radiometric_mode,
-                FILTER="LEE_SPECKLE_MMSE",
+                CRS=str(scene.crs),
+                TRANSFORM=str(list(scene.transform)[:6]),
+                DIMENSIONS=f"{h_dim}x{w_dim}",
+                SOURCE_PRODUCT_ID=p_in.stem,
+                SOURCE_ARCHIVE_SHA256=input_sha256,
+                PROCESSING_TIMESTAMP=started_at,
+                FILTER_METHOD="LEE_SPECKLE_MMSE",
                 FILTER_SIZE=str(filter_size),
                 DB_WINDOW=f"{db_window[0]},{db_window[1]}",
             )
@@ -503,12 +583,21 @@ def execute_quicklook_preprocessing(
         vh_tif_path = None
         vh_sha256 = None
         vh_processed = False
+        dualpol_aligned = False
 
         if process_vh and scene.vh_available and is_safe_product:
             try:
+                print("[SAR] processing VH", flush=True)
+                logger.info("[SAR] processing VH")
                 vh_scene = calibrate_safe(source_input_path, polarisation="VH")
+                verify_dualpol_alignment(scene, vh_scene)
+                dualpol_aligned = True
+
                 vh_filtered = lee_filter(vh_scene.sigma0, size=filter_size)
                 vh_db = to_db(vh_filtered)
+                if coastlines_path and land_mask is not None:
+                    vh_db = np.where(land_mask, db_window[0], vh_db)
+
                 vh_out_tif = proc_dir / f"{observation_id}_vh_sigma0_db.tif"
                 with rasterio.open(
                     vh_out_tif,
@@ -528,7 +617,13 @@ def execute_quicklook_preprocessing(
                         TERRAIN_CORRECTION="NONE",
                         POLARISATION="VH",
                         RADIOMETRIC_MODE=vh_scene.radiometric_mode,
-                        FILTER="LEE_SPECKLE_MMSE",
+                        CRS=str(vh_scene.crs),
+                        TRANSFORM=str(list(vh_scene.transform)[:6]),
+                        DIMENSIONS=f"{h_dim}x{w_dim}",
+                        SOURCE_PRODUCT_ID=p_in.stem,
+                        SOURCE_ARCHIVE_SHA256=input_sha256,
+                        PROCESSING_TIMESTAMP=started_at,
+                        FILTER_METHOD="LEE_SPECKLE_MMSE",
                         FILTER_SIZE=str(filter_size),
                         DB_WINDOW=f"{db_window[0]},{db_window[1]}",
                     )
@@ -541,6 +636,9 @@ def execute_quicklook_preprocessing(
                 vh_processed = True
             except Exception as vh_exc:
                 logger.warning(f"VH channel processing skipped due to error: {vh_exc}")
+
+        print("[SAR] preprocessing complete", flush=True)
+        logger.info("[SAR] preprocessing complete")
 
         duration = round(time.time() - start_clock, 2)
         completed_at = datetime.now(timezone.utc).isoformat()
@@ -563,6 +661,7 @@ def execute_quicklook_preprocessing(
             vh_processed_db_geotiff_path=vh_tif_path,
             output_sha256=out_sha256,
             vh_output_sha256=vh_sha256,
+            dualpol_aligned=dualpol_aligned,
             processing_duration_seconds=duration,
             started_at=started_at,
             completed_at=completed_at,

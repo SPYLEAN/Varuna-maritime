@@ -37,7 +37,11 @@ from backend.app.services.sar_quicklook import (
     DEFAULT_DB_WINDOW,
     RADIOMETRIC_MODE_COG_PRECALIBRATED,
     RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK,
+    RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED,
     RADIOMETRIC_MODE_SIGMA0_LUT,
+    RADIOMETRIC_MODE_UNKNOWN,
+    GeoreferenceUnavailableError,
+    _georef_from_dataarray,
     CalibratedScene,
     calibrate_safe,
     execute_quicklook_preprocessing,
@@ -47,6 +51,7 @@ from backend.app.services.sar_quicklook import (
     read_grd_measurement,
     read_sar_raster,
     to_db,
+    verify_dualpol_alignment,
 )
 from backend.app.services.segmentation_engine import (
     OIL_CLASS_INDEX,
@@ -253,6 +258,49 @@ class TestQuicklookCalibrationRouting:
             assert mock_cal.called, "execute_quicklook_preprocessing MUST route SAFE products to calibrate_safe()"
             assert res.radiometric_mode == RADIOMETRIC_MODE_SIGMA0_LUT
 
+    def test_georef_failure_never_fabricates_epsg4326(self):
+        """DataArray without spatial georeferencing must raise GeoreferenceUnavailableError, never EPSG:4326."""
+        import xarray as xr
+        da = xr.DataArray(np.zeros((16, 16), dtype=np.float32))
+        with pytest.raises(GeoreferenceUnavailableError):
+            _georef_from_dataarray(da)
+
+    def test_generic_raster_defaults_to_unknown_radiometric_mode(self, tmp_path):
+        """Generic rasters without explicit provider tags must default to UNKNOWN without value guessing."""
+        plain_tif = tmp_path / "arbitrary_uncalibrated_raster.tif"
+        with rasterio.open(
+            plain_tif, "w", driver="GTiff", height=32, width=32, count=1,
+            dtype="float32", crs="EPSG:4326", transform=Affine.identity()
+        ) as dst:
+            dst.write(np.ones((32, 32), dtype="float32") * 150.0, 1)
+
+        scene = read_sar_raster(plain_tif)
+        assert scene.radiometric_mode == RADIOMETRIC_MODE_UNKNOWN
+        # Value-magnitude guessing (data**2 if max > 100) must NOT be applied
+        assert np.isclose(scene.sigma0[0, 0], 150.0)
+
+    def test_verify_dualpol_alignment_checks(self):
+        """Spatial alignment checks must pass for matching rasters and fail on dimension/CRS mismatch."""
+        s1 = CalibratedScene(
+            sigma0=np.zeros((32, 32)),
+            transform=Affine.identity(),
+            crs=CRS.from_epsg(4326),
+        )
+        s2 = CalibratedScene(
+            sigma0=np.zeros((32, 32)),
+            transform=Affine.identity(),
+            crs=CRS.from_epsg(4326),
+        )
+        assert verify_dualpol_alignment(s1, s2) is True
+
+        s_mismatch = CalibratedScene(
+            sigma0=np.zeros((32, 30)),
+            transform=Affine.identity(),
+            crs=CRS.from_epsg(4326),
+        )
+        with pytest.raises(ValueError, match="Dual-pol alignment failure"):
+            verify_dualpol_alignment(s1, s_mismatch)
+
     def test_radiometric_mode_is_recorded(self, tmp_path):
         test_cog = tmp_path / "test_scene_cog.tif"
         with rasterio.open(
@@ -260,6 +308,7 @@ class TestQuicklookCalibrationRouting:
             dtype="float32", crs="EPSG:4326", transform=Affine.identity()
         ) as dst:
             dst.write(np.ones((32, 32), dtype="float32") * 0.1, 1)
+            dst.update_tags(RADIOMETRIC_MODE=RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED)
 
         res, scene, _, _ = execute_quicklook_preprocessing(
             case_id="case_mode_test",
@@ -268,12 +317,12 @@ class TestQuicklookCalibrationRouting:
             output_base_dir=tmp_path,
         )
 
-        assert res.radiometric_mode == RADIOMETRIC_MODE_COG_PRECALIBRATED
+        assert res.radiometric_mode == RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
         assert Path(res.processed_db_geotiff_path).exists()
 
-        with rasterio.open(res.processed_db_geotiff_path) as ds:
-            tags = ds.tags()
-            assert tags.get("RADIOMETRIC_MODE") == RADIOMETRIC_MODE_COG_PRECALIBRATED
+        with rasterio.open(res.processed_db_geotiff_path) as dst_read:
+            tags = dst_read.tags()
+            assert tags.get("RADIOMETRIC_MODE") == RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
             assert tags.get("TERRAIN_CORRECTION") == "NONE"
 
     def test_fallback_never_claims_sigma0_calibrated(self, tmp_path):
@@ -344,6 +393,7 @@ class TestLiveObservationChain:
             count=1, dtype=rasterio.float32, crs=crs, transform=transform,
         ) as dst:
             dst.write(data, 1)
+            dst.update_tags(RADIOMETRIC_MODE=RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED)
 
         prep_res, scene, filtered, sigma0_db = execute_quicklook_preprocessing(
             case_id="case_smoke_test",
@@ -354,7 +404,7 @@ class TestLiveObservationChain:
 
         assert prep_res.status == "SUCCESS"
         assert prep_res.raster_dimensions == (128, 128)
-        assert prep_res.radiometric_mode == RADIOMETRIC_MODE_COG_PRECALIBRATED
+        assert prep_res.radiometric_mode == RADIOMETRIC_MODE_PROVIDER_PRECALIBRATED
 
         chw = model_ready_chw(sigma0_db)
         inf_res = run_quicklook_segmentation(
@@ -371,8 +421,12 @@ class TestLiveObservationChain:
     def test_live_download_skips_without_credentials(self, monkeypatch):
         monkeypatch.delenv("CDSE_USER", raising=False)
         monkeypatch.delenv("CDSE_PASS", raising=False)
-        with pytest.raises(CdseCredentialsMissingError):
-            get_access_token()
+        monkeypatch.delenv("COPERNICUS_USER", raising=False)
+        monkeypatch.delenv("COPERNICUS_PASS", raising=False)
+        with patch("backend.app.services.sentinel_download.CDSE_USER", ""):
+            with patch("backend.app.services.sentinel_download.CDSE_PASS", ""):
+                with pytest.raises(CdseCredentialsMissingError):
+                    get_access_token()
 
     def test_live_test_never_uses_synthetic_raster(self):
         """Verify integration test contracts do not inject synthetic arrays."""
@@ -384,8 +438,8 @@ class TestLiveObservationChain:
     @pytest.mark.integration
     def test_real_download_and_processing_chain(self, tmp_path):
         """Genuinely live CDSE download and calibration chain. Skips if credentials absent."""
-        user = os.environ.get("CDSE_USER")
-        password = os.environ.get("CDSE_PASS")
+        user = os.environ.get("CDSE_USER") or os.environ.get("COPERNICUS_USER")
+        password = os.environ.get("CDSE_PASS") or os.environ.get("COPERNICUS_PASS")
         if not user or not password:
             pytest.skip("CDSE_USER and CDSE_PASS environment variables are not configured; skipping live download.")
 
@@ -400,8 +454,10 @@ class TestLiveObservationChain:
         assert acq_result.status == "SUCCESS"
         assert acq_result.bytes_downloaded > 0
         assert Path(acq_result.archive_path).exists()
+        assert len(acq_result.sha256) == 64
         assert acq_result.safe_dir_path is not None
         assert acq_result.manifest_valid is True
+        assert acq_result.vv_measurement_path is not None
 
         prep_res, scene, filtered, sigma0_db = execute_quicklook_preprocessing(
             case_id="case_live_download",
@@ -416,6 +472,12 @@ class TestLiveObservationChain:
             RADIOMETRIC_MODE_MEASUREMENT_INTENSITY_FALLBACK,
         )
         assert prep_res.raster_dimensions[0] > 0 and prep_res.raster_dimensions[1] > 0
+        assert prep_res.crs is not None and len(prep_res.crs) > 0
+        assert Path(prep_res.processed_db_geotiff_path).exists()
+        if prep_res.vh_available and prep_res.vh_processed:
+            assert prep_res.vh_processed_db_geotiff_path is not None
+            assert Path(prep_res.vh_processed_db_geotiff_path).exists()
+            assert prep_res.dualpol_aligned is True
 
         chw = model_ready_chw(sigma0_db)
         inf_res = run_quicklook_segmentation(
