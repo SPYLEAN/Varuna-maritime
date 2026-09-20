@@ -114,7 +114,7 @@
   },
   "workflow": {
     "current_stage": "REVIEW READY",
-    "last_updated_utc": "2026-09-20T17:38:46.678852+00:00",
+    "last_updated_utc": "2026-09-20T22:10:33.409271+00:00",
     "stages": {
       "CASE CREATED": {
         "completed": true,
@@ -133,92 +133,703 @@
       },
       "PRODUCT ACQUIRED": {
         "completed": true,
-        "timestamp": "2020-08-10T02:12:00Z",
-        "summary": "SAR GRD product acquired (ESA Copernicus)",
+        "timestamp": "2026-09-20T22:10:32.336165+00:00",
+        "summary": "Acquisition blocked: Acquisition artifacts incomplete: archive_ok=None, manifest_ok=False, vv_ok=False",
         "data": {
-          "execution_mode": "REAL"
+          "execution_mode": "BLOCKED",
+          "real_provider_validation": "BLOCKED",
+          "reason": "Acquisition artifacts incomplete: archive_ok=None, manifest_ok=False, vv_ok=False",
+          "stac_item_id": "S1B_IW_GRDH_1SDV_20200810T013800_20200810T013825_022854_02B5F4_F490"
         }
       },
       "SAR PREPROCESSED": {
         "completed": true,
-        "timestamp": "2020-08-10T02:15:00Z",
-        "summary": "Dual-pol VV/VH calibrated to Sigma0 decibels",
+        "timestamp": "2026-09-20T22:10:32.484653+00:00",
+        "summary": "Synthetic demo dual-polarization Sigma0 GeoTIFFs generated",
         "data": {
-          "execution_mode": "REAL",
-          "radiometric_mode": "SIGMA0_CALIBRATED_DB"
+          "execution_mode": "SYNTHETIC_DEMO",
+          "data_mode": "SYNTHETIC_DEMO",
+          "source_stac_item_id": "NONE",
+          "source_product_id": "NONE",
+          "source_archive_sha256": "NONE",
+          "vv_path": "C:\\Users\\tanvi\\OneDrive\\Documents\\Oil Spill\\Varuna\\data\\cases\\R001_WAKASHIO\\outputs\\R001_WAKASHIO_vv_sigma0_db.tif",
+          "vh_path": "C:\\Users\\tanvi\\OneDrive\\Documents\\Oil Spill\\Varuna\\data\\cases\\R001_WAKASHIO\\outputs\\R001_WAKASHIO_vh_sigma0_db.tif",
+          "radiometric_mode": "SIGMA0_CALIBRATED_DB",
+          "channel_order": [
+            "VV",
+            "VH"
+          ],
+          "normalisation_bounds_db": {
+            "VV": [
+              -30.0,
+              0.0
+            ],
+            "VH": [
+              -35.0,
+              -5.0
+            ]
+          }
         }
       },
       "SLICK ANALYSED": {
         "completed": true,
-        "timestamp": "2020-08-10T02:20:00Z",
-        "summary": "OilSeg SmallUNet inference: 45 candidate groups segmented",
+        "timestamp": "2026-09-20T22:10:33.210647+00:00",
+        "summary": "OilSeg V1 segmented 1 candidate polygons",
         "data": {
           "execution_mode": "REAL",
-          "polygon_count": 45
+          "model_version": "varuna-oilseg-v1-smallunet",
+          "checkpoint_sha256": "dda8fac84e6ceedcef76889acc78f8c6eb07d2d586ff00bf4dfbbf656da46e0b",
+          "evidence_raster_path": "C:\\Users\\tanvi\\OneDrive\\Documents\\Oil Spill\\Varuna\\data\\cases\\R001_WAKASHIO\\outputs\\R001_WAKASHIO_vv_sigma0_db_oil_evidence.tif",
+          "binary_mask_path": "C:\\Users\\tanvi\\OneDrive\\Documents\\Oil Spill\\Varuna\\data\\cases\\R001_WAKASHIO\\outputs\\R001_WAKASHIO_vv_sigma0_db_oil_binary.tif",
+          "statistics": {
+            "total_pixels": 65536,
+            "oil_pixels": 6392,
+            "oil_fraction": 0.097534,
+            "total_oil_area_km2": 0.738415,
+            "mean_oil_evidence_score": 0.9693,
+            "max_oil_evidence_score": 0.996,
+            "threshold": 0.5,
+            "polygon_count": 1
+          },
+          "polygon_count": 1,
+          "polygons_geojson": {
+            "type": "FeatureCollection",
+            "name": "varuna_oilseg_v1_polygons",
+            "crs": {
+              "type": "name",
+              "properties": {
+                "name": "EPSG:4326"
+              }
+            },
+            "features": [
+              {
+                "type": "Feature",
+                "id": "SLICK_CANDIDATE_001",
+                "properties": {
+                  "id": "SLICK_CANDIDATE_001",
+                  "area_m2": 738415.25,
+                  "area_km2": 0.738415,
+                  "perimeter_m": 3440.9,
+                  "mean_oil_evidence_score": 0.9693,
+                  "max_oil_evidence_score": 0.996,
+                  "solidity": 0.9998,
+                  "elongation": 1.0021,
+                  "centroid_lon": 57.756201,
+                  "centroid_lat": -20.450199
+                },
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        57.7523,
+                        -20.446199999999997
+                      ],
+                      [
+                        57.7523,
+                        -20.446399999999997
+                      ],
+                      [
+                        57.7522,
+                        -20.446399999999997
+                      ],
+                      [
+                        57.7522,
+                        -20.453999999999997
+                      ],
+                      [
+                        57.7523,
+                        -20.453999999999997
+                      ],
+                      [
+                        57.7523,
+                        -20.454099999999997
+                      ],
+                      [
+                        57.7524,
+                        -20.454099999999997
+                      ],
+                      [
+                        57.7524,
+                        -20.454199999999997
+                      ],
+                      [
+                        57.760000000000005,
+                        -20.454199999999997
+                      ],
+                      [
+                        57.760000000000005,
+                        -20.454099999999997
+                      ],
+                      [
+                        57.760200000000005,
+                        -20.454099999999997
+                      ],
+                      [
+                        57.760200000000005,
+                        -20.446299999999997
+                      ],
+                      [
+                        57.7601,
+                        -20.446299999999997
+                      ],
+                      [
+                        57.7601,
+                        -20.446199999999997
+                      ],
+                      [
+                        57.7523,
+                        -20.446199999999997
+                      ]
+                    ]
+                  ]
+                }
+              }
+            ]
+          }
         }
       },
       "CANDIDATE SELECTED": {
         "completed": true,
-        "timestamp": "2020-08-10T02:25:00Z",
-        "summary": "Candidate C4053 selected (ML: 0.5818, Area: 1.42 km2, PHYSICS_ELIGIBLE)",
+        "timestamp": "2026-09-20T22:10:33.247878+00:00",
+        "summary": "Selected candidate SLICK_CANDIDATE_001: PHYSICS_ELIGIBLE",
         "data": {
           "execution_mode": "REAL",
-          "selected_candidate": "C4053",
-          "evidence_gate_status": "PHYSICS_ELIGIBLE"
+          "selected_candidate_id": "SLICK_CANDIDATE_001",
+          "evidence_gate_status": "PHYSICS_ELIGIBLE",
+          "physics_eligible": true,
+          "scores": {
+            "segmentation_score": 0.98,
+            "morphology_score": 0.7,
+            "environmental_score": 1.0,
+            "lookalike_risk_score": 0.1,
+            "overall_confidence": 0.8559
+          },
+          "decision_reasons": [
+            "Strong dual-polarization backscatter damping (mean evidence: 0.97)",
+            "Geometry area (0.738 km\u00b2) within valid operational spill scale",
+            "Near-circular morphology (solidity=1.00, elongation=1.00) suggests biogenic bloom or atmospheric cell",
+            "Optimal SAR wind regime (6.5 m/s): capillary waves dampened reliably by mineral oil"
+          ],
+          "recommended_action": "Eligible for physics simulation. Automatically initiate OpenDrift hindcast and forward response forecast.",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  57.7523,
+                  -20.446199999999997
+                ],
+                [
+                  57.7523,
+                  -20.446399999999997
+                ],
+                [
+                  57.7522,
+                  -20.446399999999997
+                ],
+                [
+                  57.7522,
+                  -20.453999999999997
+                ],
+                [
+                  57.7523,
+                  -20.453999999999997
+                ],
+                [
+                  57.7523,
+                  -20.454099999999997
+                ],
+                [
+                  57.7524,
+                  -20.454099999999997
+                ],
+                [
+                  57.7524,
+                  -20.454199999999997
+                ],
+                [
+                  57.760000000000005,
+                  -20.454199999999997
+                ],
+                [
+                  57.760000000000005,
+                  -20.454099999999997
+                ],
+                [
+                  57.760200000000005,
+                  -20.454099999999997
+                ],
+                [
+                  57.760200000000005,
+                  -20.446299999999997
+                ],
+                [
+                  57.7601,
+                  -20.446299999999997
+                ],
+                [
+                  57.7601,
+                  -20.446199999999997
+                ],
+                [
+                  57.7523,
+                  -20.446199999999997
+                ]
+              ]
+            ]
+          }
         }
       },
       "HINDCAST COMPLETE": {
         "completed": true,
-        "timestamp": "2020-08-10T03:00:00Z",
-        "summary": "OpenDrift backward hindcast: ~24.17 km drift @ 24h to Pointe d'Esny reef",
+        "timestamp": "2026-09-20T22:10:33.281010+00:00",
+        "summary": "Hindcast demo complete for SLICK_CANDIDATE_001; release region derived",
         "data": {
-          "execution_mode": "SYNTHETIC_DEMO"
+          "execution_mode": "SYNTHETIC_DEMO",
+          "candidate_id": "SLICK_CANDIDATE_001",
+          "engine": "DEMO_TRAJECTORY_APPROXIMATION",
+          "forcing_provenance": {
+            "wind_dataset": "NONE",
+            "current_dataset": "NONE",
+            "forcing_mode": "SYNTHETIC_DEMO_APPROXIMATION",
+            "note": "Kinematic demonstration approximation. NOT a real OpenDrift Lagrangian simulation."
+          },
+          "probable_release_region": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  57.623200000000004,
+                  -20.5282
+                ],
+                [
+                  57.7032,
+                  -20.5282
+                ],
+                [
+                  57.7032,
+                  -20.468199999999996
+                ],
+                [
+                  57.623200000000004,
+                  -20.468199999999996
+                ],
+                [
+                  57.623200000000004,
+                  -20.5282
+                ]
+              ]
+            ]
+          },
+          "probable_release_window": {
+            "window_start_utc": "2020-08-09T07:38:00Z",
+            "window_end_utc": "2020-08-09T19:38:00Z",
+            "duration_hours": 12.0
+          },
+          "ensemble_uncertainty": {
+            "particle_count": 250,
+            "dispersion_radius_km": 4.8,
+            "confidence_level": "SYNTHETIC_DEMO_APPROXIMATION"
+          }
         }
       },
       "FORECAST COMPLETE": {
         "completed": true,
-        "timestamp": "2020-08-10T03:30:00Z",
-        "summary": "OpenDrift forward trajectory forecast (T0 -> T+48h) northward along coast",
+        "timestamp": "2026-09-20T22:10:33.313541+00:00",
+        "summary": "Forward drift response forecast generated (SYNTHETIC_DEMO)",
         "data": {
           "execution_mode": "SYNTHETIC_DEMO",
-          "response_summary": "Forward trajectory forecast computed (SYNTHETIC_DEMO)"
+          "engine": "DEMO_TRAJECTORY_APPROXIMATION",
+          "t0_observation_time": "2020-08-10T01:38:00Z",
+          "forcing_provenance": {
+            "forecast_winds": "NONE",
+            "forecast_currents": "NONE",
+            "forcing_mode": "SYNTHETIC_DEMO_APPROXIMATION",
+            "note": "Kinematic demonstration approximation. NOT a real OpenDrift Lagrangian simulation."
+          },
+          "horizons": {
+            "T+6h": {
+              "target_timestamp_utc": "2020-08-10T07:38:00+00:00",
+              "centroid": [
+                57.7792,
+                -20.4142
+              ],
+              "envelope_geojson": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      57.7462,
+                      -20.4472
+                    ],
+                    [
+                      57.812200000000004,
+                      -20.4472
+                    ],
+                    [
+                      57.812200000000004,
+                      -20.381199999999996
+                    ],
+                    [
+                      57.7462,
+                      -20.381199999999996
+                    ],
+                    [
+                      57.7462,
+                      -20.4472
+                    ]
+                  ]
+                ]
+              },
+              "threatened_coastal_resources": "Simulated horizon projection; heading east-northeast in demo mode"
+            },
+            "T+12h": {
+              "target_timestamp_utc": "2020-08-10T13:38:00+00:00",
+              "centroid": [
+                57.8152,
+                -20.3902
+              ],
+              "envelope_geojson": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      57.7642,
+                      -20.4412
+                    ],
+                    [
+                      57.866200000000006,
+                      -20.4412
+                    ],
+                    [
+                      57.866200000000006,
+                      -20.3392
+                    ],
+                    [
+                      57.7642,
+                      -20.3392
+                    ],
+                    [
+                      57.7642,
+                      -20.4412
+                    ]
+                  ]
+                ]
+              },
+              "threatened_coastal_resources": "Simulated horizon projection; heading east-northeast in demo mode"
+            },
+            "T+24h": {
+              "target_timestamp_utc": "2020-08-11T01:38:00+00:00",
+              "centroid": [
+                57.8872,
+                -20.3422
+              ],
+              "envelope_geojson": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      57.8002,
+                      -20.429199999999998
+                    ],
+                    [
+                      57.9742,
+                      -20.429199999999998
+                    ],
+                    [
+                      57.9742,
+                      -20.2552
+                    ],
+                    [
+                      57.8002,
+                      -20.2552
+                    ],
+                    [
+                      57.8002,
+                      -20.429199999999998
+                    ]
+                  ]
+                ]
+              },
+              "threatened_coastal_resources": "Simulated horizon projection; heading east-northeast in demo mode"
+            },
+            "T+48h": {
+              "target_timestamp_utc": "2020-08-12T01:38:00+00:00",
+              "centroid": [
+                58.0312,
+                -20.2462
+              ],
+              "envelope_geojson": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      57.8722,
+                      -20.405199999999997
+                    ],
+                    [
+                      58.1902,
+                      -20.405199999999997
+                    ],
+                    [
+                      58.1902,
+                      -20.0872
+                    ],
+                    [
+                      57.8722,
+                      -20.0872
+                    ],
+                    [
+                      57.8722,
+                      -20.405199999999997
+                    ]
+                  ]
+                ]
+              },
+              "threatened_coastal_resources": "Simulated horizon projection; heading east-northeast in demo mode"
+            }
+          },
+          "response_summary": "Simulated candidate moving east-northeast at ~0.35 m/s. Synthetic demo projection."
         }
       },
       "RESPONSE PRIORITIZED": {
         "completed": true,
-        "timestamp": "2020-08-10T03:45:00Z",
+        "timestamp": "2026-09-20T22:10:33.344868+00:00",
         "summary": "Response prioritized: Highest=Protected Marine Habitat C (HIGH), window=12.0h",
         "data": {
+          "status": "SUCCESS",
           "engine_execution_mode": "REAL",
+          "trajectory_execution_mode": "SYNTHETIC_DEMO",
+          "receptor_data_mode": "SYNTHETIC_DEMO",
           "effective_evidence_mode": "SYNTHETIC_DEMO",
+          "execution_mode": "REAL",
+          "input_data_mode": "SYNTHETIC_DEMO",
+          "generated_at": "2026-09-20T22:10:33.344868+00:00",
           "highest_priority_receptor": {
+            "receptor_id": "REC-DEMO-01",
             "receptor_name": "Protected Marine Habitat C",
+            "receptor_type": "protected marine habitat",
+            "sensitivity": "CRITICAL",
+            "estimated_arrival_hours": 12.0,
+            "minimum_distance_km": 0.0,
+            "uncertainty_km": 4.8,
             "priority": "HIGH",
-            "receptor_type": "CORAL_REEF"
+            "response_score": 0.825,
+            "reasons": [
+              "Forecast envelope intersects receptor",
+              "Estimated arrival is 12.0 hours (12.00h)",
+              "Environmental sensitivity is CRITICAL",
+              "Arrival within 12 hours with elevated sensitivity requires priority staging"
+            ],
+            "limitations": [
+              "Arrival time is a decision-support estimate, not a deterministic prediction",
+              "Response score is an operational ranking metric, not a statistical probability",
+              "Trajectory uses SYNTHETIC_DEMO forcing; advection is approximate",
+              "Receptor dataset is synthetic demonstration baseline (not surveyed cadastral boundary)",
+              "Effective evidence mode is SYNTHETIC_DEMO due to synthetic inputs"
+            ],
+            "data_mode": "SYNTHETIC_DEMO",
+            "execution_mode": "REAL",
+            "engine_execution_mode": "REAL",
+            "trajectory_execution_mode": "SYNTHETIC_DEMO",
+            "receptor_data_mode": "SYNTHETIC_DEMO",
+            "effective_evidence_mode": "SYNTHETIC_DEMO"
           },
-          "response_window_hours": 12.0
+          "response_window_hours": 12.0,
+          "receptors": [
+            {
+              "receptor_id": "REC-DEMO-01",
+              "receptor_name": "Protected Marine Habitat C",
+              "receptor_type": "protected marine habitat",
+              "sensitivity": "CRITICAL",
+              "estimated_arrival_hours": 12.0,
+              "minimum_distance_km": 0.0,
+              "uncertainty_km": 4.8,
+              "priority": "HIGH",
+              "response_score": 0.825,
+              "reasons": [
+                "Forecast envelope intersects receptor",
+                "Estimated arrival is 12.0 hours (12.00h)",
+                "Environmental sensitivity is CRITICAL",
+                "Arrival within 12 hours with elevated sensitivity requires priority staging"
+              ],
+              "limitations": [
+                "Arrival time is a decision-support estimate, not a deterministic prediction",
+                "Response score is an operational ranking metric, not a statistical probability",
+                "Trajectory uses SYNTHETIC_DEMO forcing; advection is approximate",
+                "Receptor dataset is synthetic demonstration baseline (not surveyed cadastral boundary)",
+                "Effective evidence mode is SYNTHETIC_DEMO due to synthetic inputs"
+              ],
+              "data_mode": "SYNTHETIC_DEMO",
+              "execution_mode": "REAL",
+              "engine_execution_mode": "REAL",
+              "trajectory_execution_mode": "SYNTHETIC_DEMO",
+              "receptor_data_mode": "SYNTHETIC_DEMO",
+              "effective_evidence_mode": "SYNTHETIC_DEMO"
+            },
+            {
+              "receptor_id": "REC-DEMO-02",
+              "receptor_name": "Coastal Marine Sanctuary A",
+              "receptor_type": "marine sanctuary",
+              "sensitivity": "MEDIUM",
+              "estimated_arrival_hours": 24.0,
+              "minimum_distance_km": 0.0,
+              "uncertainty_km": 4.8,
+              "priority": "MEDIUM",
+              "response_score": 0.54,
+              "reasons": [
+                "Forecast envelope intersects receptor",
+                "Estimated arrival is 24.0 hours (24.00h)",
+                "Environmental sensitivity is MEDIUM",
+                "Arrival within 24 hours warrants planned containment preparation"
+              ],
+              "limitations": [
+                "Arrival time is a decision-support estimate, not a deterministic prediction",
+                "Response score is an operational ranking metric, not a statistical probability",
+                "Trajectory uses SYNTHETIC_DEMO forcing; advection is approximate",
+                "Receptor dataset is synthetic demonstration baseline (not surveyed cadastral boundary)",
+                "Effective evidence mode is SYNTHETIC_DEMO due to synthetic inputs"
+              ],
+              "data_mode": "SYNTHETIC_DEMO",
+              "execution_mode": "REAL",
+              "engine_execution_mode": "REAL",
+              "trajectory_execution_mode": "SYNTHETIC_DEMO",
+              "receptor_data_mode": "SYNTHETIC_DEMO",
+              "effective_evidence_mode": "SYNTHETIC_DEMO"
+            },
+            {
+              "receptor_id": "REC-DEMO-03",
+              "receptor_name": "Fishing Ground B",
+              "receptor_type": "fishing ground",
+              "sensitivity": "MEDIUM",
+              "estimated_arrival_hours": null,
+              "minimum_distance_km": 8.88,
+              "uncertainty_km": 4.8,
+              "priority": "MONITOR",
+              "response_score": 0.31,
+              "reasons": [
+                "Receptor outside direct forecast envelope",
+                "Receptor lies within trajectory uncertainty buffer (8.9 km distance <= 12.0 km corridor)",
+                "Environmental sensitivity is MEDIUM",
+                "Met-ocean shift could bring receptor into trajectory path"
+              ],
+              "limitations": [
+                "Arrival time is a decision-support estimate, not a deterministic prediction",
+                "Response score is an operational ranking metric, not a statistical probability",
+                "Trajectory uses SYNTHETIC_DEMO forcing; advection is approximate",
+                "Receptor dataset is synthetic demonstration baseline (not surveyed cadastral boundary)",
+                "Effective evidence mode is SYNTHETIC_DEMO due to synthetic inputs"
+              ],
+              "data_mode": "SYNTHETIC_DEMO",
+              "execution_mode": "REAL",
+              "engine_execution_mode": "REAL",
+              "trajectory_execution_mode": "SYNTHETIC_DEMO",
+              "receptor_data_mode": "SYNTHETIC_DEMO",
+              "effective_evidence_mode": "SYNTHETIC_DEMO"
+            },
+            {
+              "receptor_id": "REC-DEMO-04",
+              "receptor_name": "Commercial Harbor D",
+              "receptor_type": "port / harbor",
+              "sensitivity": "LOW",
+              "estimated_arrival_hours": null,
+              "minimum_distance_km": 36.39,
+              "uncertainty_km": 4.8,
+              "priority": "LOW",
+              "response_score": 0.1,
+              "reasons": [
+                "No forecast envelope intersection",
+                "Receptor distance (36.4 km) is sufficiently outside trajectory dispersion zone",
+                "Environmental sensitivity is LOW"
+              ],
+              "limitations": [
+                "Arrival time is a decision-support estimate, not a deterministic prediction",
+                "Response score is an operational ranking metric, not a statistical probability",
+                "Trajectory uses SYNTHETIC_DEMO forcing; advection is approximate",
+                "Receptor dataset is synthetic demonstration baseline (not surveyed cadastral boundary)",
+                "Effective evidence mode is SYNTHETIC_DEMO due to synthetic inputs"
+              ],
+              "data_mode": "SYNTHETIC_DEMO",
+              "execution_mode": "REAL",
+              "engine_execution_mode": "REAL",
+              "trajectory_execution_mode": "SYNTHETIC_DEMO",
+              "receptor_data_mode": "SYNTHETIC_DEMO",
+              "effective_evidence_mode": "SYNTHETIC_DEMO"
+            }
+          ],
+          "limitations": [
+            "Response score is an operational decision-support metric, not a statistical probability",
+            "Advection timing is based on forecast drift kinematics and metocean forcing resolution",
+            "Effective evidence mode is SYNTHETIC_DEMO whenever synthetic forcing or demo receptors are used"
+          ]
         }
       },
       "AIS CORRELATED": {
         "completed": true,
-        "timestamp": "2020-08-10T04:15:00Z",
-        "summary": "AIS correlated: PACIFIC EXPLORER ranked as INVESTIGATIVE_CANDIDATE",
+        "timestamp": "2026-09-20T22:10:33.378388+00:00",
+        "summary": "AIS correlated: 2 investigative candidates identified (SYNTHETIC_DEMO)",
         "data": {
-          "execution_mode": "SYNTHETIC_DEMO"
+          "execution_mode": "SYNTHETIC_DEMO",
+          "ais_data_mode": "SYNTHETIC_DEMO",
+          "search_window": {
+            "window_start_utc": "2020-08-09T07:38:00Z",
+            "window_end_utc": "2020-08-09T19:38:00Z",
+            "duration_hours": 12.0
+          },
+          "ais_coverage_status": "SYNTHETIC_DEMO (Simulated demo candidate tracks; zero observed AIS ingested)",
+          "candidates": [
+            {
+              "candidate_designation": "INVESTIGATIVE_CANDIDATE",
+              "vessel_name": "PACIFIC EXPLORER",
+              "mmsi": "563082000",
+              "imo": "9412345",
+              "vessel_type": "Crude Oil Tanker",
+              "flag": "Singapore",
+              "ais_data_mode": "SYNTHETIC_DEMO",
+              "source_record_type": "SYNTHETIC_DEMO_TRAFFIC",
+              "spatiotemporal_compatibility": "HIGH (Intersected probable release polygon within 45 min of estimated release window)",
+              "investigative_priority_score": 0.84,
+              "evidence_factors": [
+                "Closest point of approach: 1.2 km from release envelope centroid",
+                "Speed reduction observed: dropped from 14.2 kn to 7.8 kn in vicinity",
+                "Heading alignment consistent with initial slick orientation streak"
+              ],
+              "limitations": "Synthetic demo track. Proximity is not proof of discharge; physical sampling or aerial sheen confirmation required."
+            },
+            {
+              "candidate_designation": "INVESTIGATIVE_CANDIDATE",
+              "vessel_name": "NORDIC TRADER",
+              "mmsi": "219001452",
+              "imo": "9678901",
+              "vessel_type": "Bulk Carrier",
+              "flag": "Denmark",
+              "ais_data_mode": "SYNTHETIC_DEMO",
+              "source_record_type": "SYNTHETIC_DEMO_TRAFFIC",
+              "spatiotemporal_compatibility": "MODERATE (Track passed 4.8 km south of release envelope)",
+              "investigative_priority_score": 0.52,
+              "evidence_factors": [
+                "Passed within regional corridor 2.5 hours prior to observation",
+                "Constant cruising speed maintained (12.4 kn)"
+              ],
+              "limitations": "Synthetic demo track. Trajectory compatibility is marginal; lower investigative priority."
+            }
+          ],
+          "nomenclature_compliance": "Enforced: INVESTIGATIVE_CANDIDATE. Zero guilt or attribution declared."
         }
       },
       "REVIEW READY": {
         "completed": true,
-        "timestamp": "2026-09-20T17:38:46.678852+00:00",
+        "timestamp": "2026-09-20T22:10:33.409271+00:00",
         "summary": "Final incident review report generated",
         "data": {
           "report_id": "VARUNA-REPORT-R001_WAKASHIO",
-          "generated_at_utc": "2026-09-20T17:38:46.678852+00:00",
+          "generated_at_utc": "2026-09-20T22:10:33.409271+00:00",
           "case_id": "R001_WAKASHIO",
           "case_name": "MV Wakashio Grounding & Fuel Oil Spill",
           "stage_execution_modes": {
-            "PRODUCT ACQUIRED": "REAL",
-            "SAR PREPROCESSED": "REAL",
+            "PRODUCT ACQUIRED": "BLOCKED",
+            "SAR PREPROCESSED": "SYNTHETIC_DEMO",
             "SLICK ANALYSED": "REAL",
             "CANDIDATE SELECTED": "REAL",
             "HINDCAST COMPLETE": "SYNTHETIC_DEMO",
@@ -233,21 +844,95 @@
           },
           "response_intelligence": {
             "what_was_observed": "Dual-polarization SAR backscatter depression evaluated for oil-like evidence.",
-            "slick_characterisation": {},
+            "slick_characterisation": {
+              "total_pixels": 65536,
+              "oil_pixels": 6392,
+              "oil_fraction": 0.097534,
+              "total_oil_area_km2": 0.738415,
+              "mean_oil_evidence_score": 0.9693,
+              "max_oil_evidence_score": 0.996,
+              "threshold": 0.5,
+              "polygon_count": 1
+            },
             "evidence_gate_qualification": "PHYSICS_ELIGIBLE",
             "lookalike_assessment": "Candidate passed the current evidence gate; reduced likelihood of biogenic/wind lookalike under evaluated criteria.",
-            "where_is_it_moving": "Forward trajectory forecast computed (SYNTHETIC_DEMO)",
+            "where_is_it_moving": "Simulated candidate moving east-northeast at ~0.35 m/s. Synthetic demo projection.",
             "highest_priority_receptor": {
+              "receptor_id": "REC-DEMO-01",
               "receptor_name": "Protected Marine Habitat C",
+              "receptor_type": "protected marine habitat",
+              "sensitivity": "CRITICAL",
+              "estimated_arrival_hours": 12.0,
+              "minimum_distance_km": 0.0,
+              "uncertainty_km": 4.8,
               "priority": "HIGH",
-              "receptor_type": "CORAL_REEF"
+              "response_score": 0.825,
+              "reasons": [
+                "Forecast envelope intersects receptor",
+                "Estimated arrival is 12.0 hours (12.00h)",
+                "Environmental sensitivity is CRITICAL",
+                "Arrival within 12 hours with elevated sensitivity requires priority staging"
+              ],
+              "limitations": [
+                "Arrival time is a decision-support estimate, not a deterministic prediction",
+                "Response score is an operational ranking metric, not a statistical probability",
+                "Trajectory uses SYNTHETIC_DEMO forcing; advection is approximate",
+                "Receptor dataset is synthetic demonstration baseline (not surveyed cadastral boundary)",
+                "Effective evidence mode is SYNTHETIC_DEMO due to synthetic inputs"
+              ],
+              "data_mode": "SYNTHETIC_DEMO",
+              "execution_mode": "REAL",
+              "engine_execution_mode": "REAL",
+              "trajectory_execution_mode": "SYNTHETIC_DEMO",
+              "receptor_data_mode": "SYNTHETIC_DEMO",
+              "effective_evidence_mode": "SYNTHETIC_DEMO"
             },
             "response_window_hours": 12.0,
             "engine_execution_mode": "REAL",
             "effective_evidence_mode": "SYNTHETIC_DEMO",
             "resources_at_risk": "Coastal shoreline downstream monitored; containment staging advised.",
-            "probable_origin": {},
-            "investigative_candidates": []
+            "probable_origin": {
+              "window_start_utc": "2020-08-09T07:38:00Z",
+              "window_end_utc": "2020-08-09T19:38:00Z",
+              "duration_hours": 12.0
+            },
+            "investigative_candidates": [
+              {
+                "candidate_designation": "INVESTIGATIVE_CANDIDATE",
+                "vessel_name": "PACIFIC EXPLORER",
+                "mmsi": "563082000",
+                "imo": "9412345",
+                "vessel_type": "Crude Oil Tanker",
+                "flag": "Singapore",
+                "ais_data_mode": "SYNTHETIC_DEMO",
+                "source_record_type": "SYNTHETIC_DEMO_TRAFFIC",
+                "spatiotemporal_compatibility": "HIGH (Intersected probable release polygon within 45 min of estimated release window)",
+                "investigative_priority_score": 0.84,
+                "evidence_factors": [
+                  "Closest point of approach: 1.2 km from release envelope centroid",
+                  "Speed reduction observed: dropped from 14.2 kn to 7.8 kn in vicinity",
+                  "Heading alignment consistent with initial slick orientation streak"
+                ],
+                "limitations": "Synthetic demo track. Proximity is not proof of discharge; physical sampling or aerial sheen confirmation required."
+              },
+              {
+                "candidate_designation": "INVESTIGATIVE_CANDIDATE",
+                "vessel_name": "NORDIC TRADER",
+                "mmsi": "219001452",
+                "imo": "9678901",
+                "vessel_type": "Bulk Carrier",
+                "flag": "Denmark",
+                "ais_data_mode": "SYNTHETIC_DEMO",
+                "source_record_type": "SYNTHETIC_DEMO_TRAFFIC",
+                "spatiotemporal_compatibility": "MODERATE (Track passed 4.8 km south of release envelope)",
+                "investigative_priority_score": 0.52,
+                "evidence_factors": [
+                  "Passed within regional corridor 2.5 hours prior to observation",
+                  "Constant cruising speed maintained (12.4 kn)"
+                ],
+                "limitations": "Synthetic demo track. Trajectory compatibility is marginal; lower investigative priority."
+              }
+            ]
           },
           "uncertainty_and_limitations": {
             "model_uncertainty": "Empirical OIL_EVIDENCE_SCORE from SmallUNet. Real-world generalization not yet validated.",
@@ -256,11 +941,11 @@
           },
           "provenance_chain": {
             "pipeline_version": "Varuna 2.4.0 (Truthfulness Patched Build)",
-            "model_checkpoint_sha256": null,
+            "model_checkpoint_sha256": "dda8fac84e6ceedcef76889acc78f8c6eb07d2d586ff00bf4dfbbf656da46e0b",
             "case_created_at": "2020-08-10T02:00:00Z",
             "stage_execution_modes": {
-              "PRODUCT ACQUIRED": "REAL",
-              "SAR PREPROCESSED": "REAL",
+              "PRODUCT ACQUIRED": "BLOCKED",
+              "SAR PREPROCESSED": "SYNTHETIC_DEMO",
               "SLICK ANALYSED": "REAL",
               "CANDIDATE SELECTED": "REAL",
               "HINDCAST COMPLETE": "SYNTHETIC_DEMO",

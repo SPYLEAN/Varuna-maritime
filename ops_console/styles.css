@@ -368,8 +368,10 @@ html, body {
   z-index: 1;
 }
 
-.scene-viewer-canvas.leaflet-container {
-  background: var(--surface-container-lowest) !important;
+.scene-viewer-canvas.leaflet-container,
+.sn-map-canvas.leaflet-container,
+.leaflet-container {
+  background: #06101E !important;
 }
 
 /* GIS FLOATING TOP TOOLBAR (STITCH MATCH) */

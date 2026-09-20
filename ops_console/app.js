@@ -987,7 +987,7 @@
       { num: "07", name: "FORWARD FORECAST", key: "FORECAST COMPLETE", engine: "OpenDrift Forward Drift (Metocean Forcing)" },
       { num: "08", name: "RESPONSE PRIORITIZED", key: "RESPONSE PRIORITIZED", engine: "Marine Receptor Risk Ranking & Arrival Windows" },
       { num: "09", name: "AIS CORRELATED", key: "AIS CORRELATED", engine: "Vessel Spatiotemporal Kinematic Correlation" },
-      { num: "10", name: "REVIEW READY", key: "REVIEW READY", engine: "Incident Dossier & Cryptographic Provenance Chain" }
+      { num: "10", name: "REVIEW READY", key: "REVIEW READY", engine: "Incident Dossier & SHA-256 Provenance Chain" }
     ];
 
     const rowsHtml = stageRows.map(r => {
