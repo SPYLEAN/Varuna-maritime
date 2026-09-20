@@ -1,0 +1,104 @@
+Start: 2026-09-20T22:02:41.788406+00:00
+End: 2026-09-20T22:07:45.353553+00:00
+Exit Code: 0
+Summary Line: 298 passed, 2 deselected, 21 warnings in 267.17s (0:04:27)
+
+Per-File Counts:
+  backend/tests/test_ais_engine.py: 9
+  backend/tests/test_ais_ranking.py: 8
+  backend/tests/test_candidate_ml_inputs.py: 3
+  backend/tests/test_cases.py: 6
+  backend/tests/test_e2e_gauntlet.py: 12
+  backend/tests/test_environmental_forcing.py: 7
+  backend/tests/test_evidence_and_analysis.py: 8
+  backend/tests/test_evidence_gate.py: 4
+  backend/tests/test_files_and_usability.py: 5
+  backend/tests/test_final_case_workflow.py: 2
+  backend/tests/test_forward_validation.py: 8
+  backend/tests/test_frontend_integration.py: 4
+  backend/tests/test_hindcast_engine.py: 6
+  backend/tests/test_hindcast_execution_audit.py: 3
+  backend/tests/test_hindcast_forcing_hardening.py: 6
+  backend/tests/test_hindcast_readiness.py: 5
+  backend/tests/test_historical_validation.py: 8
+  backend/tests/test_investigation_api.py: 14
+  backend/tests/test_investigation_engine.py: 9
+  backend/tests/test_live_prototype_orchestration.py: 9
+  backend/tests/test_oilseg_v1_adapter.py: 4
+  backend/tests/test_opendrift_hindcast_engine.py: 3
+  backend/tests/test_opendrift_physics_quality_diagnosis.py: 3
+  backend/tests/test_phase1_multicase.py: 9
+  backend/tests/test_production_hardening.py: 5
+  backend/tests/test_response_priority.py: 13
+  backend/tests/test_sar_candidate_extractor.py: 8
+  backend/tests/test_sar_candidate_triage.py: 3
+  backend/tests/test_sar_processing_chain.py: 25
+  backend/tests/test_sar_provenance_reconciliation.py: 3
+  backend/tests/test_sentinel_catalog.py: 10
+  backend/tests/test_spill_geometry.py: 8
+  backend/tests/test_truthful_execution_contracts.py: 8
+  backend/tests/test_ui_integrity.py: 6
+  backend/tests/test_varuna_intelligence.py: 12
+  ml/tests/test_candidate_classifier.py: 5
+  ml/tests/test_dataset.py: 2
+  ml/tests/test_metrics.py: 3
+  ml/tests/test_model.py: 3
+  ml/tests/test_pipeline.py: 1
+  ml/tests/test_sentinel1_data.py: 11
+  ml/tests/test_v1_evaluation_checkpoint.py: 6
+  ml/tests/test_v1_readiness_gate.py: 11
+
+Full Output:
+........................................................................ [ 24%]
+........................................................................ [ 48%]
+........................................................................ [ 72%]
+........................................................................ [ 96%]
+..........                                                               [100%]
+============================== warnings summary ===============================
+backend/tests/test_forward_validation.py::test_frozen_input_hash_verification
+backend/tests/test_forward_validation.py::test_task009c_fast_pipeline_execution
+  C:\Users\tanvi\OneDrive\Documents\Oil Spill\Varuna\backend\app\services\opendrift_forward_validation.py:113: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "freeze_timestamp_utc": datetime.utcnow().isoformat() + "Z",
+
+backend/tests/test_forward_validation.py::test_task009c_fast_pipeline_execution
+  C:\Users\tanvi\OneDrive\Documents\Oil Spill\Varuna\backend\app\services\opendrift_forward_validation.py:755: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "execution_timestamp_utc": datetime.utcnow().isoformat() + "Z",
+
+backend/tests/test_hindcast_readiness.py::test_non_georeferenced_spill_rejection_in_readiness
+backend/tests/test_spill_geometry.py::test_single_rectangular_component
+backend/tests/test_spill_geometry.py::test_horizontal_and_vertical_ellipse_orientation
+backend/tests/test_spill_geometry.py::test_multiple_disconnected_components
+backend/tests/test_spill_geometry.py::test_empty_mask_null_safeguards
+backend/tests/test_spill_geometry.py::test_minimum_component_size_filtering
+backend/tests/test_spill_geometry.py::test_successful_spill_geometry_analysis_pipeline
+  C:\Users\tanvi\OneDrive\Documents\Oil Spill\Varuna\.venv\Lib\site-packages\rasterio\__init__.py:379: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+    dataset = DatasetReader(path, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+
+backend/tests/test_hindcast_readiness.py::test_temporal_and_spatial_coverage_validation
+backend/tests/test_hindcast_readiness.py::test_temporal_and_spatial_coverage_validation
+  C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra\backend\tests\test_hindcast_readiness.py:63: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+
+backend/tests/test_hindcast_readiness.py::test_temporal_and_spatial_coverage_validation
+backend/tests/test_hindcast_readiness.py::test_temporal_and_spatial_coverage_validation
+  C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra\backend\tests\test_hindcast_readiness.py:64: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+
+backend/tests/test_hindcast_readiness.py::test_temporal_and_spatial_coverage_validation
+  C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra\backend\tests\test_hindcast_readiness.py:69: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+
+backend/tests/test_hindcast_readiness.py::test_temporal_and_spatial_coverage_validation
+  C:\Users\tanvi\OneDrive\Documents\Oil Spill\SamudraNetra\backend\tests\test_hindcast_readiness.py:70: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+
+backend/tests/test_sar_processing_chain.py::TestQuicklookCalibrationRouting::test_safe_uses_calibrate_safe
+backend/tests/test_sar_processing_chain.py::TestQuicklookCalibrationRouting::test_generic_raster_defaults_to_unknown_radiometric_mode
+backend/tests/test_sar_processing_chain.py::TestQuicklookCalibrationRouting::test_sigma0_filename_does_not_imply_precalibrated
+backend/tests/test_sar_processing_chain.py::TestQuicklookCalibrationRouting::test_radiometric_mode_is_recorded
+backend/tests/test_sar_processing_chain.py::TestQuicklookCalibrationRouting::test_fallback_never_claims_sigma0_calibrated
+  C:\Users\tanvi\OneDrive\Documents\Oil Spill\Varuna\.venv\Lib\site-packages\rasterio\__init__.py:389: NotGeoreferencedWarning: The given matrix is equal to Affine.identity or its flipped counterpart. GDAL may ignore this matrix and save no geotransform without raising an error. This behavior is somewhat driver-specific.
+    dataset = writer(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+298 passed, 2 deselected, 21 warnings in 267.17s (0:04:27)

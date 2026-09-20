@@ -12,17 +12,72 @@
 
 All automated regression, unit, and scientific truthfulness test suites passed with **zero broken tests**.
 
-| Suite | Scope | Passed | Failed | Skipped | Total | Duration |
-|---|---|---|---|---|---|---|
-| `backend/tests` | API, Case Lifecycle, Calibrated SAR, GeoJSON Vectorizer, OpenDrift, AIS Kinematics, Workflow, Truthfulness Contracts | 255 | 0 | 1* | 256 | ~445s |
-| `ml/tests` | Dual-pol SmallUNet, GeoTIFF Data Loaders, Metrics, Inference Pipeline, Readiness Gates | 42 | 0 | 0 | 42 | ~51s |
-| **Total Combined** | **End-to-End System** | **297** | **0** | **1** | **298** | **~496s** |
+- **Exact Pytest Summary Line:** `298 passed, 2 deselected, 21 warnings in 267.17s (0:04:27)`
+- **Run Execution Start (UTC):** `2026-09-20T22:02:41.788406+00:00`
+- **Run Execution End (UTC):** `2026-09-20T22:07:45.353553+00:00`
+- **Exit Code:** `0`
+- **Total Test Files:** 43 (35 in `backend/tests`, 8 in `ml/tests`)
+- **Total Test Cases:** 298 passed (2 deselected live network tests)
 
-*\*Note: 1 skipped test in backend suite is `test_live_cdse_network_credential_ping` which gracefully skips when Copernicus CDSE credentials are not set in the host environment.*
+| Suite | Scope | Passed | Deselected | Total Collected | Duration |
+|---|---|---|---|---|---|
+| `backend/tests` (35 files) | API, Case Lifecycle, Calibrated SAR, GeoJSON Vectorizer, OpenDrift, AIS Kinematics, Workflow, Response Priority, Intelligence Agent, Multi-case Truthfulness Contracts | 256 | 2* | 258 | ~225s |
+| `ml/tests` (8 files) | Dual-pol SmallUNet, GeoTIFF Data Loaders, Metrics, Inference Pipeline, Readiness Gates, Checkpoint Schema | 42 | 0 | 42 | ~42s |
+| **Total Combined** | **End-to-End Maritime Intelligence System** | **298** | **2** | **300** | **267.17s** |
+
+*\*Note: 2 deselected tests in backend suite are live network tests (`test_live_cdse_network_credential_ping` and live satellite catalog network check) which gracefully deselect when Copernicus CDSE credentials are not set in the host environment.*
 
 ### Reconciled `test_response_priority.py` Test Count (12 Unit Tests vs 13 Total Functions)
 - **12 Pure Unit Tests (Tests 1–12):** Exhaustively verify backend response priority calculations, proximity weighting, sensitivity classification (`CRITICAL`, `HIGH`, `MEDIUM`, `MONITOR`, `LOW`), deterministic priority formulas, and effective evidence mode calculation (`compute_effective_evidence_mode`, `evaluate_receptor_priority`, `evaluate_case_response_priorities`).
-- **1 UI Contract Test (Test 13 `test_ui_does_not_label_demo_trajectory_real`):** Audits `ops_console/index.html` and `ops_console/app.js` to ensure the interface truthfully reports `SYNTHETIC_DEMO` for demonstration trajectories, strictly forbidding the claim of `REAL` trajectory when demonstration forcing was utilized. This test validates the contract between mathematical truth and operator presentation.
+- **1 UI Contract Test (Test 13 `test_ui_does_not_label_demo_trajectory_real`):** Audits `ops_console/index.html` and `ops_console/app.js` to ensure the interface truthfully reports `SYNTHETIC_DEMO` for demonstration trajectories, strictly forbidding the claim of `REAL` trajectory when demonstration forcing was utilized. This brings the total test count in `test_response_priority.py` to exactly 13 tests.
+
+#### Complete Per-File Collected Test Counts:
+```text
+backend/tests/test_ais_engine.py: 9
+backend/tests/test_ais_ranking.py: 8
+backend/tests/test_candidate_ml_inputs.py: 3
+backend/tests/test_cases.py: 6
+backend/tests/test_e2e_gauntlet.py: 12
+backend/tests/test_environmental_forcing.py: 7
+backend/tests/test_evidence_and_analysis.py: 8
+backend/tests/test_evidence_gate.py: 4
+backend/tests/test_files_and_usability.py: 5
+backend/tests/test_final_case_workflow.py: 2
+backend/tests/test_forward_validation.py: 8
+backend/tests/test_frontend_integration.py: 4
+backend/tests/test_hindcast_engine.py: 6
+backend/tests/test_hindcast_execution_audit.py: 3
+backend/tests/test_hindcast_forcing_hardening.py: 6
+backend/tests/test_hindcast_readiness.py: 5
+backend/tests/test_historical_validation.py: 8
+backend/tests/test_investigation_api.py: 14
+backend/tests/test_investigation_engine.py: 9
+backend/tests/test_live_prototype_orchestration.py: 9
+backend/tests/test_oilseg_v1_adapter.py: 4
+backend/tests/test_opendrift_hindcast_engine.py: 3
+backend/tests/test_opendrift_physics_quality_diagnosis.py: 3
+backend/tests/test_phase1_multicase.py: 9
+backend/tests/test_production_hardening.py: 5
+backend/tests/test_response_priority.py: 13
+backend/tests/test_sar_candidate_extractor.py: 8
+backend/tests/test_sar_candidate_triage.py: 3
+backend/tests/test_sar_processing_chain.py: 25
+backend/tests/test_sar_provenance_reconciliation.py: 3
+backend/tests/test_sentinel_catalog.py: 10
+backend/tests/test_spill_geometry.py: 8
+backend/tests/test_truthful_execution_contracts.py: 8
+backend/tests/test_ui_integrity.py: 6
+backend/tests/test_varuna_intelligence.py: 12
+ml/tests/test_candidate_classifier.py: 5
+ml/tests/test_dataset.py: 2
+ml/tests/test_metrics.py: 3
+ml/tests/test_model.py: 3
+ml/tests/test_pipeline.py: 1
+ml/tests/test_sentinel1_data.py: 11
+ml/tests/test_v1_evaluation_checkpoint.py: 6
+ml/tests/test_v1_readiness_gate.py: 11
+Total test files: 43 | Total test cases: 298 passed
+```
 
 ---
 
