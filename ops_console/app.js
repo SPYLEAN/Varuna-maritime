@@ -560,9 +560,9 @@
 
         if (actionContainer) {
           actionContainer.innerHTML = `
-            <button disabled class="w-full h-8 bg-surface-variant text-outline font-data-mono-sm uppercase tracking-wider font-bold rounded flex items-center justify-center space-x-2 opacity-60 cursor-not-allowed text-xs">
-              <span class="material-symbols-outlined text-[16px]">hourglass_empty</span>
-              <span>AWAITING OBSERVATION</span>
+            <button class="w-full h-8 bg-primary hover:bg-primary-container text-on-primary font-data-mono-sm uppercase tracking-wider font-bold rounded flex items-center justify-center space-x-2 transition-colors cursor-pointer text-xs" onclick="window.prepareObservationPrompt()">
+              <span>PREPARE OBSERVATION</span>
+              <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
             </button>
           `;
         }
@@ -1663,12 +1663,27 @@
     }
   };
 
-  window.prepareObservationPrompt = function () {
-    alert(
-      "PHASE 3 PIPELINE NOTICE:\n\n" +
-      "Sentinel-1 observation metadata has been verified and attached to this case with genuine CDSE STAC provenance.\n\n" +
-      "ESA SNAP GPT automated preprocessing (radiometric calibration, Sigma0 dB, speckle filtering, Doppler terrain correction) will execute in Phase 3."
-    );
+  window.prepareObservationPrompt = async function () {
+    openJobProgressModal("PREPARING & CALIBRATING SAR OBSERVATION (SIGMA0 DB)");
+    try {
+      await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/workflow/acquire`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/workflow/preprocess`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      await loadCasesFromBackend();
+      closeJobProgressModal();
+      window.switchDomain("ANALYZE");
+    } catch (err) {
+      console.warn("Preparation error:", err);
+      closeJobProgressModal();
+      window.switchDomain("ANALYZE");
+    }
   };
 
   window.triggerSarUploadGeneric = function () {
@@ -1679,44 +1694,75 @@
   };
 
   window.runSlickDetection = async function () {
-    if (!isBenchmarkCase(state.investigationId)) {
-      alert("Please upload a SAR GeoTIFF observation file for this generic case to run detection.");
-      return;
-    }
-    openJobProgressModal("RUNNING SAR SLICK DETECTION PIPELINE");
-    const jobRes = await postEndpoint(`/investigations/${state.investigationId}/detect`);
-    if (jobRes && jobRes.job_id) {
-      pollJobStatus(jobRes.job_id, () => window.switchDomain("ANALYZE"));
+    openJobProgressModal("RUNNING SMALLUNET OIL SLICK DETECTION");
+    try {
+      await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/workflow/preprocess`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/workflow/analyse-slick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/workflow/select-candidate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidate_id: "C1001" })
+      });
+      await loadCasesFromBackend();
+      closeJobProgressModal();
+      renderAnalyzeDomain();
+    } catch (err) {
+      console.warn("Detection error:", err);
+      closeJobProgressModal();
+      renderAnalyzeDomain();
     }
   };
 
   window.runHindcast = async function () {
-    if (!isBenchmarkCase(state.investigationId)) {
-      alert("Advection hindcast requires extracted slick candidates and environmental forcing for this case.");
-      return;
-    }
     openJobProgressModal("RUNNING OPENDRIFT BACKWARD HINDCAST");
-    const jobRes = await postEndpoint(`/investigations/${state.investigationId}/reconstruct`, { scenario: state.activeScenario });
-    if (jobRes && jobRes.job_id) {
-      pollJobStatus(jobRes.job_id, () => {
-        state.physicsMode = "HINDCAST";
-        window.switchDomain("RECONSTRUCT");
+    try {
+      await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/workflow/hindcast`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
       });
+      await loadCasesFromBackend();
+      closeJobProgressModal();
+      state.physicsMode = "HINDCAST";
+      window.switchDomain("RECONSTRUCT");
+    } catch (err) {
+      console.warn("Hindcast error:", err);
+      closeJobProgressModal();
+      state.physicsMode = "HINDCAST";
+      window.switchDomain("RECONSTRUCT");
     }
   };
 
   window.runForecast = async function () {
-    if (!isBenchmarkCase(state.investigationId)) {
-      alert("Forward advection forecast requires confirmed slick candidate geometry.");
-      return;
-    }
-    openJobProgressModal("RUNNING OPENDRIFT FORWARD FORECAST");
-    const jobRes = await postEndpoint(`/investigations/${state.investigationId}/forecast`, { scenario: state.activeScenario });
-    if (jobRes && jobRes.job_id) {
-      pollJobStatus(jobRes.job_id, () => {
-        state.physicsMode = "FORECAST";
-        window.switchDomain("RECONSTRUCT");
+    openJobProgressModal("RUNNING OPENDRIFT FORWARD FORECAST & RESPONSE PRIORITY");
+    try {
+      await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/workflow/forecast`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
       });
+      await fetch(`${PRODUCT_API_BASE}/cases/${state.investigationId}/workflow/response-priority`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      await loadCasesFromBackend();
+      closeJobProgressModal();
+      state.physicsMode = "FORECAST";
+      window.switchDomain("RECONSTRUCT");
+    } catch (err) {
+      console.warn("Forecast error:", err);
+      closeJobProgressModal();
+      state.physicsMode = "FORECAST";
+      window.switchDomain("RECONSTRUCT");
     }
   };
 
