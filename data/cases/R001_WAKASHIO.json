@@ -1,0 +1,290 @@
+{
+  "case_id": "R001_WAKASHIO",
+  "name": "MV Wakashio Grounding & Fuel Oil Spill",
+  "description": "Bulk carrier MV Wakashio ran aground on reef at Pointe d'Esny, southeast Mauritius, leaking VLSFO into coastal coral lagoons.",
+  "observation_timestamp": "2020-08-10T01:38:00Z",
+  "latitude": -20.4382,
+  "longitude": 57.7432,
+  "source": "Validated Copernicus Sentinel-1B SAR Benchmark",
+  "tags": [
+    "benchmark",
+    "vessel-grounding",
+    "indian-ocean",
+    "coral-lagoon",
+    "historical-validated"
+  ],
+  "region": "Pointe d'Esny, Mauritius (Indian Ocean)",
+  "incident_type": "Vessel Grounding & Bunker Spill",
+  "priority": "CRITICAL",
+  "aoi_geojson": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          57.1,
+          -20.75
+        ],
+        [
+          58.3,
+          -20.75
+        ],
+        [
+          58.3,
+          -19.7
+        ],
+        [
+          57.1,
+          -19.7
+        ],
+        [
+          57.1,
+          -20.75
+        ]
+      ]
+    ]
+  },
+  "created_at": "2020-08-10T02:00:00Z",
+  "analysis_status": {
+    "oil_detection": "completed",
+    "spill_geometry": "completed",
+    "hindcast": "completed",
+    "ais_correlation": "completed",
+    "attribution": "completed"
+  },
+  "data_manifest": {
+    "satellite_observations": [
+      {
+        "observation_id": "obs_r001_s1b",
+        "provider": "Copernicus Data Space Ecosystem",
+        "collection": "sentinel-1-grd",
+        "stac_item_id": "S1B_IW_GRDH_1SDV_20200810T013800_20200810T013825_022854_02B5F4_F490",
+        "platform": "Sentinel-1B",
+        "datetime": "2020-08-10T01:38:00Z",
+        "instrument_mode": "IW",
+        "polarizations": [
+          "VV",
+          "VH"
+        ],
+        "product_type": "GRD",
+        "coverage_percent": 100.0,
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                57.1,
+                -20.75
+              ],
+              [
+                58.3,
+                -20.75
+              ],
+              [
+                58.3,
+                -19.7
+              ],
+              [
+                57.1,
+                -19.7
+              ],
+              [
+                57.1,
+                -20.75
+              ]
+            ]
+          ]
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "ev_r001_sar",
+        "case_id": "R001_WAKASHIO",
+        "evidence_type": "sar_image",
+        "original_filename": "sar_vv_display.webp",
+        "stored_path": "assets/sar_vv_display.webp",
+        "file_size": 324150,
+        "sha256": "d7a8f3b2c1e4a5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0",
+        "source": "Copernicus Sentinel-1B IW GRDH",
+        "uploaded_at": "2020-08-10T01:45:00Z",
+        "is_synthetic": false,
+        "is_human_verified": true
+      }
+    ]
+  },
+  "workflow": {
+    "current_stage": "REVIEW READY",
+    "last_updated_utc": "2026-09-20T17:38:46.678852+00:00",
+    "stages": {
+      "CASE CREATED": {
+        "completed": true,
+        "timestamp": "2020-08-10T02:00:00Z",
+        "summary": "Case registered in database"
+      },
+      "OBSERVATION SEARCHED": {
+        "completed": true,
+        "timestamp": "2020-08-10T02:05:00Z",
+        "summary": "Sentinel-1B IW GRD scene discovered in CDSE archive"
+      },
+      "OBSERVATION ATTACHED": {
+        "completed": true,
+        "timestamp": "2020-08-10T02:10:00Z",
+        "summary": "Validated Sentinel-1B observation attached"
+      },
+      "PRODUCT ACQUIRED": {
+        "completed": true,
+        "timestamp": "2020-08-10T02:12:00Z",
+        "summary": "SAR GRD product acquired (ESA Copernicus)",
+        "data": {
+          "execution_mode": "REAL"
+        }
+      },
+      "SAR PREPROCESSED": {
+        "completed": true,
+        "timestamp": "2020-08-10T02:15:00Z",
+        "summary": "Dual-pol VV/VH calibrated to Sigma0 decibels",
+        "data": {
+          "execution_mode": "REAL",
+          "radiometric_mode": "SIGMA0_CALIBRATED_DB"
+        }
+      },
+      "SLICK ANALYSED": {
+        "completed": true,
+        "timestamp": "2020-08-10T02:20:00Z",
+        "summary": "OilSeg SmallUNet inference: 45 candidate groups segmented",
+        "data": {
+          "execution_mode": "REAL",
+          "polygon_count": 45
+        }
+      },
+      "CANDIDATE SELECTED": {
+        "completed": true,
+        "timestamp": "2020-08-10T02:25:00Z",
+        "summary": "Candidate C4053 selected (ML: 0.5818, Area: 1.42 km2, PHYSICS_ELIGIBLE)",
+        "data": {
+          "execution_mode": "REAL",
+          "selected_candidate": "C4053",
+          "evidence_gate_status": "PHYSICS_ELIGIBLE"
+        }
+      },
+      "HINDCAST COMPLETE": {
+        "completed": true,
+        "timestamp": "2020-08-10T03:00:00Z",
+        "summary": "OpenDrift backward hindcast: ~24.17 km drift @ 24h to Pointe d'Esny reef",
+        "data": {
+          "execution_mode": "SYNTHETIC_DEMO"
+        }
+      },
+      "FORECAST COMPLETE": {
+        "completed": true,
+        "timestamp": "2020-08-10T03:30:00Z",
+        "summary": "OpenDrift forward trajectory forecast (T0 -> T+48h) northward along coast",
+        "data": {
+          "execution_mode": "SYNTHETIC_DEMO",
+          "response_summary": "Forward trajectory forecast computed (SYNTHETIC_DEMO)"
+        }
+      },
+      "RESPONSE PRIORITIZED": {
+        "completed": true,
+        "timestamp": "2020-08-10T03:45:00Z",
+        "summary": "Response prioritized: Highest=Protected Marine Habitat C (HIGH), window=12.0h",
+        "data": {
+          "engine_execution_mode": "REAL",
+          "effective_evidence_mode": "SYNTHETIC_DEMO",
+          "highest_priority_receptor": {
+            "receptor_name": "Protected Marine Habitat C",
+            "priority": "HIGH",
+            "receptor_type": "CORAL_REEF"
+          },
+          "response_window_hours": 12.0
+        }
+      },
+      "AIS CORRELATED": {
+        "completed": true,
+        "timestamp": "2020-08-10T04:15:00Z",
+        "summary": "AIS correlated: PACIFIC EXPLORER ranked as INVESTIGATIVE_CANDIDATE",
+        "data": {
+          "execution_mode": "SYNTHETIC_DEMO"
+        }
+      },
+      "REVIEW READY": {
+        "completed": true,
+        "timestamp": "2026-09-20T17:38:46.678852+00:00",
+        "summary": "Final incident review report generated",
+        "data": {
+          "report_id": "VARUNA-REPORT-R001_WAKASHIO",
+          "generated_at_utc": "2026-09-20T17:38:46.678852+00:00",
+          "case_id": "R001_WAKASHIO",
+          "case_name": "MV Wakashio Grounding & Fuel Oil Spill",
+          "stage_execution_modes": {
+            "PRODUCT ACQUIRED": "REAL",
+            "SAR PREPROCESSED": "REAL",
+            "SLICK ANALYSED": "REAL",
+            "CANDIDATE SELECTED": "REAL",
+            "HINDCAST COMPLETE": "SYNTHETIC_DEMO",
+            "FORECAST COMPLETE": "SYNTHETIC_DEMO",
+            "RESPONSE PRIORITIZED": "REAL",
+            "AIS CORRELATED": "SYNTHETIC_DEMO"
+          },
+          "geography": {
+            "region": "Pointe d'Esny, Mauritius (Indian Ocean)",
+            "latitude": -20.4382,
+            "longitude": 57.7432
+          },
+          "response_intelligence": {
+            "what_was_observed": "Dual-polarization SAR backscatter depression evaluated for oil-like evidence.",
+            "slick_characterisation": {},
+            "evidence_gate_qualification": "PHYSICS_ELIGIBLE",
+            "lookalike_assessment": "Candidate passed the current evidence gate; reduced likelihood of biogenic/wind lookalike under evaluated criteria.",
+            "where_is_it_moving": "Forward trajectory forecast computed (SYNTHETIC_DEMO)",
+            "highest_priority_receptor": {
+              "receptor_name": "Protected Marine Habitat C",
+              "priority": "HIGH",
+              "receptor_type": "CORAL_REEF"
+            },
+            "response_window_hours": 12.0,
+            "engine_execution_mode": "REAL",
+            "effective_evidence_mode": "SYNTHETIC_DEMO",
+            "resources_at_risk": "Coastal shoreline downstream monitored; containment staging advised.",
+            "probable_origin": {},
+            "investigative_candidates": []
+          },
+          "uncertainty_and_limitations": {
+            "model_uncertainty": "Empirical OIL_EVIDENCE_SCORE from SmallUNet. Real-world generalization not yet validated.",
+            "atmospheric_uncertainty": "Metocean forcing resolution and local wind shear gradients may affect drift precision.",
+            "ais_limitations": "AIS proximity is not proof of discharge. Candidates represent investigative prioritization only."
+          },
+          "provenance_chain": {
+            "pipeline_version": "Varuna 2.4.0 (Truthfulness Patched Build)",
+            "model_checkpoint_sha256": null,
+            "case_created_at": "2020-08-10T02:00:00Z",
+            "stage_execution_modes": {
+              "PRODUCT ACQUIRED": "REAL",
+              "SAR PREPROCESSED": "REAL",
+              "SLICK ANALYSED": "REAL",
+              "CANDIDATE SELECTED": "REAL",
+              "HINDCAST COMPLETE": "SYNTHETIC_DEMO",
+              "FORECAST COMPLETE": "SYNTHETIC_DEMO",
+              "RESPONSE PRIORITIZED": "REAL",
+              "AIS CORRELATED": "SYNTHETIC_DEMO"
+            },
+            "completed_stages": [
+              "CASE CREATED",
+              "OBSERVATION SEARCHED",
+              "OBSERVATION ATTACHED",
+              "PRODUCT ACQUIRED",
+              "SAR PREPROCESSED",
+              "SLICK ANALYSED",
+              "CANDIDATE SELECTED",
+              "HINDCAST COMPLETE",
+              "FORECAST COMPLETE",
+              "RESPONSE PRIORITIZED",
+              "AIS CORRELATED",
+              "REVIEW READY"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

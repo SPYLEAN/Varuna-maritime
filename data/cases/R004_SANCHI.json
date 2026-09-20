@@ -1,0 +1,275 @@
+{
+  "case_id": "R004_SANCHI",
+  "name": "Sanchi Collision & Condensate Spill",
+  "description": "Suezmax condensate tanker Sanchi collided with CF Crystal in East China Sea, caught fire, drifted ~100 nm southeast and sank, releasing natural gas condensate and heavy fuel oil.",
+  "observation_timestamp": "2018-01-15T21:39:00Z",
+  "latitude": 28.36,
+  "longitude": 125.91,
+  "source": "Gaofen-3 / Copernicus Sentinel-1 Multitemporal Monitoring",
+  "tags": [
+    "benchmark",
+    "collision-fire-sinking",
+    "condensate-spill",
+    "east-china-sea",
+    "kuroshio-current"
+  ],
+  "region": "East China Sea, offshore Shanghai / Okinawa Trough",
+  "incident_type": "Tanker Collision, Fire & Volatile Condensate Spill",
+  "priority": "HIGH",
+  "aoi_geojson": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          124.5,
+          27.5
+        ],
+        [
+          127.0,
+          27.5
+        ],
+        [
+          127.0,
+          29.5
+        ],
+        [
+          124.5,
+          29.5
+        ],
+        [
+          124.5,
+          27.5
+        ]
+      ]
+    ]
+  },
+  "created_at": "2018-01-15T22:30:00Z",
+  "analysis_status": {
+    "oil_detection": "completed",
+    "spill_geometry": "completed",
+    "hindcast": "completed",
+    "ais_correlation": "completed",
+    "attribution": "completed"
+  },
+  "data_manifest": {
+    "satellite_observations": [
+      {
+        "observation_id": "obs_r004_s1a",
+        "provider": "Copernicus Data Space Ecosystem",
+        "collection": "sentinel-1-grd",
+        "stac_item_id": "S1A_IW_GRDH_1SDV_20180115T213900_20180115T213925_020163_0225D4_B108",
+        "platform": "Sentinel-1A",
+        "datetime": "2018-01-15T21:39:00Z",
+        "instrument_mode": "IW",
+        "polarizations": [
+          "VV",
+          "VH"
+        ],
+        "product_type": "GRD",
+        "coverage_percent": 100.0,
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                124.5,
+                27.5
+              ],
+              [
+                127.0,
+                27.5
+              ],
+              [
+                127.0,
+                29.5
+              ],
+              [
+                124.5,
+                29.5
+              ],
+              [
+                124.5,
+                27.5
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "workflow": {
+    "current_stage": "REVIEW READY",
+    "last_updated_utc": "2026-09-20T17:38:52.984806+00:00",
+    "stages": {
+      "CASE CREATED": {
+        "completed": true,
+        "timestamp": "2018-01-15T22:30:00Z",
+        "summary": "Case registered in database"
+      },
+      "OBSERVATION SEARCHED": {
+        "completed": true,
+        "timestamp": "2018-01-15T22:35:00Z",
+        "summary": "Sentinel-1A & GF-3 radar observations resolved"
+      },
+      "OBSERVATION ATTACHED": {
+        "completed": true,
+        "timestamp": "2018-01-15T22:40:00Z",
+        "summary": "Sentinel-1A SAR scene attached"
+      },
+      "PRODUCT ACQUIRED": {
+        "completed": true,
+        "timestamp": "2018-01-15T22:45:00Z",
+        "summary": "Sentinel-1A GRD acquired (Copernicus CDSE)",
+        "data": {
+          "execution_mode": "REAL"
+        }
+      },
+      "SAR PREPROCESSED": {
+        "completed": true,
+        "timestamp": "2018-01-15T22:50:00Z",
+        "summary": "Calibrated to Sigma0 dB with condensate evaporative damping assessment",
+        "data": {
+          "execution_mode": "REAL",
+          "radiometric_mode": "SIGMA0_CALIBRATED_DB"
+        }
+      },
+      "SLICK ANALYSED": {
+        "completed": true,
+        "timestamp": "2018-01-15T23:05:00Z",
+        "summary": "OilSeg SmallUNet: 31 patches segmented (mixed condensate & heavy fuel)",
+        "data": {
+          "execution_mode": "REAL",
+          "polygon_count": 31
+        }
+      },
+      "CANDIDATE SELECTED": {
+        "completed": true,
+        "timestamp": "2018-01-15T23:15:00Z",
+        "summary": "Candidate C5012 selected (Area: 14.30 km2, ML: 0.6280, REVIEW_REQUIRED due to volatile product)",
+        "data": {
+          "execution_mode": "REAL",
+          "selected_candidate": "C5012",
+          "evidence_gate_status": "REVIEW_REQUIRED"
+        }
+      },
+      "HINDCAST COMPLETE": {
+        "completed": true,
+        "timestamp": "2018-01-16T00:15:00Z",
+        "summary": "OpenDrift backward hindcast: tracks drift under Kuroshio current back to collision waypoint (30\u00b051.1'N, 124\u00b057.6'E)",
+        "data": {
+          "execution_mode": "SYNTHETIC_DEMO"
+        }
+      },
+      "FORECAST COMPLETE": {
+        "completed": true,
+        "timestamp": "2018-01-16T00:45:00Z",
+        "summary": "Forward trajectory forecast predicting northeastward advection along Kuroshio axis",
+        "data": {
+          "execution_mode": "SYNTHETIC_DEMO",
+          "response_summary": "Forward trajectory forecast computed (SYNTHETIC_DEMO)"
+        }
+      },
+      "RESPONSE PRIORITIZED": {
+        "completed": true,
+        "timestamp": "2018-01-16T01:00:00Z",
+        "summary": "Response prioritized: Highest=East China Sea Pelagic Fishery Grounds (HIGH), window=36.0h",
+        "data": {
+          "engine_execution_mode": "REAL",
+          "effective_evidence_mode": "SYNTHETIC_DEMO",
+          "highest_priority_receptor": {
+            "receptor_name": "East China Sea Pelagic Fishery Grounds",
+            "priority": "HIGH",
+            "receptor_type": "FISHERY"
+          },
+          "response_window_hours": 36.0
+        }
+      },
+      "AIS CORRELATED": {
+        "completed": true,
+        "timestamp": "2018-01-16T01:15:00Z",
+        "summary": "Historical AIS tracks correlate SANCHI (IMO 9356608) and CF CRYSTAL (IMO 9497050) collision kinematics",
+        "data": {
+          "execution_mode": "SYNTHETIC_DEMO"
+        }
+      },
+      "REVIEW READY": {
+        "completed": true,
+        "timestamp": "2026-09-20T17:38:52.984806+00:00",
+        "summary": "Final incident review report generated",
+        "data": {
+          "report_id": "VARUNA-REPORT-R004_SANCHI",
+          "generated_at_utc": "2026-09-20T17:38:52.984806+00:00",
+          "case_id": "R004_SANCHI",
+          "case_name": "Sanchi Collision & Condensate Spill",
+          "stage_execution_modes": {
+            "PRODUCT ACQUIRED": "REAL",
+            "SAR PREPROCESSED": "REAL",
+            "SLICK ANALYSED": "REAL",
+            "CANDIDATE SELECTED": "REAL",
+            "HINDCAST COMPLETE": "SYNTHETIC_DEMO",
+            "FORECAST COMPLETE": "SYNTHETIC_DEMO",
+            "RESPONSE PRIORITIZED": "REAL",
+            "AIS CORRELATED": "SYNTHETIC_DEMO"
+          },
+          "geography": {
+            "region": "East China Sea, offshore Shanghai / Okinawa Trough",
+            "latitude": 28.36,
+            "longitude": 125.91
+          },
+          "response_intelligence": {
+            "what_was_observed": "Dual-polarization SAR backscatter depression evaluated for oil-like evidence.",
+            "slick_characterisation": {},
+            "evidence_gate_qualification": "REVIEW_REQUIRED",
+            "lookalike_assessment": "Candidate passed the current evidence gate; reduced likelihood of biogenic/wind lookalike under evaluated criteria.",
+            "where_is_it_moving": "Forward trajectory forecast computed (SYNTHETIC_DEMO)",
+            "highest_priority_receptor": {
+              "receptor_name": "East China Sea Pelagic Fishery Grounds",
+              "priority": "HIGH",
+              "receptor_type": "FISHERY"
+            },
+            "response_window_hours": 36.0,
+            "engine_execution_mode": "REAL",
+            "effective_evidence_mode": "SYNTHETIC_DEMO",
+            "resources_at_risk": "Coastal shoreline downstream monitored; containment staging advised.",
+            "probable_origin": {},
+            "investigative_candidates": []
+          },
+          "uncertainty_and_limitations": {
+            "model_uncertainty": "Empirical OIL_EVIDENCE_SCORE from SmallUNet. Real-world generalization not yet validated.",
+            "atmospheric_uncertainty": "Metocean forcing resolution and local wind shear gradients may affect drift precision.",
+            "ais_limitations": "AIS proximity is not proof of discharge. Candidates represent investigative prioritization only."
+          },
+          "provenance_chain": {
+            "pipeline_version": "Varuna 2.4.0 (Truthfulness Patched Build)",
+            "model_checkpoint_sha256": null,
+            "case_created_at": "2018-01-15T22:30:00Z",
+            "stage_execution_modes": {
+              "PRODUCT ACQUIRED": "REAL",
+              "SAR PREPROCESSED": "REAL",
+              "SLICK ANALYSED": "REAL",
+              "CANDIDATE SELECTED": "REAL",
+              "HINDCAST COMPLETE": "SYNTHETIC_DEMO",
+              "FORECAST COMPLETE": "SYNTHETIC_DEMO",
+              "RESPONSE PRIORITIZED": "REAL",
+              "AIS CORRELATED": "SYNTHETIC_DEMO"
+            },
+            "completed_stages": [
+              "CASE CREATED",
+              "OBSERVATION SEARCHED",
+              "OBSERVATION ATTACHED",
+              "PRODUCT ACQUIRED",
+              "SAR PREPROCESSED",
+              "SLICK ANALYSED",
+              "CANDIDATE SELECTED",
+              "HINDCAST COMPLETE",
+              "FORECAST COMPLETE",
+              "RESPONSE PRIORITIZED",
+              "AIS CORRELATED",
+              "REVIEW READY"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

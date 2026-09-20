@@ -109,7 +109,14 @@ def test_full_case_workflow_progression(client, tmp_path):
     assert fc_data["status"] == "SUCCESS"
     assert "T+24h" in fc_data["details"]["horizons"]
 
-    # 9. AIS Correlation
+    # 9. Response Prioritization
+    resp_res = client.post(f"/api/v1/cases/{case_id}/workflow/response-priority")
+    assert resp_res.status_code == 200
+    resp_data = resp_res.json()
+    assert resp_data["status"] == "SUCCESS"
+    assert resp_data["highest_priority_receptor"] is not None
+
+    # 10. AIS Correlation
     ais_res = client.post(f"/api/v1/cases/{case_id}/workflow/correlate-ais")
     assert ais_res.status_code == 200
     ais_data = ais_res.json()

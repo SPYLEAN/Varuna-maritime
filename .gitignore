@@ -10,6 +10,11 @@ data/processed/*
 !data/processed/.gitkeep
 data/cases/*
 !data/cases/.gitkeep
+!data/cases/R001_WAKASHIO.json
+!data/cases/R002_GRANDE_AMERICA.json
+!data/cases/R003_PRINCESS_EMPRESS.json
+!data/cases/R004_SANCHI.json
+!data/cases/R005_DEEPWATER_HORIZON.json
 models/*
 !models/.gitkeep
 *.pt
@@ -59,4 +64,7 @@ venv/
 .env
 .env.*
 !.env.example
+
+# Test artifacts
+.pytest_temp/
 

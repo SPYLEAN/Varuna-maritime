@@ -57,6 +57,11 @@ VARUNA_CDSE_CACHE_DIR: str = os.environ.get(
     "VARUNA_CDSE_CACHE_DIR", "./data/cache/cdse"
 ).strip()
 
+# Varuna Intelligence Agent & Bedrock Settings
+VARUNA_AGENT_ENABLED: bool = os.environ.get("VARUNA_AGENT_ENABLED", "true").strip().lower() in ("true", "1", "yes")
+AWS_REGION: str = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1")).strip()
+VARUNA_BEDROCK_MODEL_ID: str = os.environ.get("VARUNA_BEDROCK_MODEL_ID", "anthropic.claude-3-haiku-20240307-v1:0").strip()
+
 
 def mask_secret(value: Optional[str]) -> str:
     """Safely mask sensitive strings for logs without revealing content."""
@@ -67,7 +72,7 @@ def mask_secret(value: Optional[str]) -> str:
     return f"{value[:2]}...{value[-2:]} ({len(value)} chars)"
 
 
-def get_sanitized_config() -> dict[str, str | int]:
+def get_sanitized_config() -> dict[str, str | int | bool]:
     """Return a dictionary of configuration with sensitive credentials masked."""
     return {
         "VARUNA_VERSION": VARUNA_VERSION,
@@ -80,4 +85,7 @@ def get_sanitized_config() -> dict[str, str | int]:
         "VARUNA_CDSE_CACHE_DIR": VARUNA_CDSE_CACHE_DIR,
         "CDSE_USER": mask_secret(CDSE_USER),
         "CDSE_PASS": mask_secret(CDSE_PASS),
+        "VARUNA_AGENT_ENABLED": VARUNA_AGENT_ENABLED,
+        "AWS_REGION": AWS_REGION,
+        "VARUNA_BEDROCK_MODEL_ID": VARUNA_BEDROCK_MODEL_ID,
     }

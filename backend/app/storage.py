@@ -11,12 +11,36 @@ class JSONCaseStorage:
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-    def _get_case_path(self, case_id: str) -> Path:
+    def _resolve_case_id(self, case_id: str) -> str:
         safe_id = Path(case_id).name
-        return self.storage_dir / f"{safe_id}.json"
+        direct_path = self.storage_dir / f"{safe_id}.json"
+        if direct_path.exists():
+            return safe_id
+        aliases = {
+            "R001": "R001_WAKASHIO",
+            "CASE_R001": "R001_WAKASHIO",
+            "WAKASHIO": "R001_WAKASHIO",
+            "R002": "R002_GRANDE_AMERICA",
+            "CASE_R002": "R002_GRANDE_AMERICA",
+            "GRANDE_AMERICA": "R002_GRANDE_AMERICA",
+            "R003": "R003_PRINCESS_EMPRESS",
+            "CASE_R003": "R003_PRINCESS_EMPRESS",
+            "PRINCESS_EMPRESS": "R003_PRINCESS_EMPRESS",
+            "R004": "R004_SANCHI",
+            "CASE_R004": "R004_SANCHI",
+            "SANCHI": "R004_SANCHI",
+            "R005": "R005_DEEPWATER_HORIZON",
+            "CASE_R005": "R005_DEEPWATER_HORIZON",
+            "DEEPWATER_HORIZON": "R005_DEEPWATER_HORIZON",
+        }
+        return aliases.get(safe_id.upper(), safe_id)
+
+    def _get_case_path(self, case_id: str) -> Path:
+        resolved = self._resolve_case_id(case_id)
+        return self.storage_dir / f"{resolved}.json"
 
     def get_case_dir(self, case_id: str) -> Path:
-        safe_id = Path(case_id).name
+        safe_id = self._resolve_case_id(case_id)
         c_dir = self.storage_dir / safe_id
         c_dir.mkdir(parents=True, exist_ok=True)
         return c_dir
@@ -54,7 +78,22 @@ class JSONCaseStorage:
                 cases.append(data)
             except Exception:
                 continue
-        cases.sort(key=lambda c: c.get("created_at", ""), reverse=True)
+
+        canonical_order = [
+            "R001_WAKASHIO",
+            "R002_GRANDE_AMERICA",
+            "R003_PRINCESS_EMPRESS",
+            "R004_SANCHI",
+            "R005_DEEPWATER_HORIZON",
+        ]
+
+        def sort_key(c: dict):
+            cid = c.get("case_id", "")
+            if cid in canonical_order:
+                return (0, canonical_order.index(cid), "")
+            return (1, 0, c.get("created_at", ""))
+
+        cases.sort(key=sort_key)
         return cases
 
     def save_evidence_file(self, case_id: str, original_filename: str, content_bytes: bytes) -> Tuple[str, int, str]:

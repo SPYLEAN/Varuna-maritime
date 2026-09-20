@@ -1,0 +1,280 @@
+{
+  "case_id": "R005_DEEPWATER_HORIZON",
+  "name": "Deepwater Horizon Macondo Well Blowout",
+  "description": "Catastrophic wellhead blowout at Mississippi Canyon Block 252 (Macondo well) resulting in continuous seabed crude discharge. Non-vessel offshore source class validation.",
+  "observation_timestamp": "2010-04-22T14:00:00Z",
+  "latitude": 28.7366,
+  "longitude": -88.366,
+  "source": "NASA/JPL UAVSAR & Satellite Radar Monitoring / USCG Investigation",
+  "tags": [
+    "benchmark",
+    "offshore-well-blowout",
+    "non-vessel-source",
+    "gulf-of-mexico",
+    "macondo-mc252"
+  ],
+  "region": "Mississippi Canyon Block 252, Northern Gulf of Mexico (USA)",
+  "incident_type": "Offshore Wellhead Blowout (Non-Vessel Source)",
+  "priority": "CRITICAL",
+  "aoi_geojson": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -89.5,
+          28.0
+        ],
+        [
+          -87.5,
+          28.0
+        ],
+        [
+          -87.5,
+          29.5
+        ],
+        [
+          -89.5,
+          29.5
+        ],
+        [
+          -89.5,
+          28.0
+        ]
+      ]
+    ]
+  },
+  "created_at": "2010-04-22T15:00:00Z",
+  "analysis_status": {
+    "oil_detection": "completed",
+    "spill_geometry": "completed",
+    "hindcast": "completed",
+    "ais_correlation": "completed",
+    "attribution": "completed"
+  },
+  "data_manifest": {
+    "satellite_observations": [
+      {
+        "observation_id": "obs_r005_uavsar",
+        "provider": "NASA/JPL UAVSAR",
+        "collection": "uavsar-quad-pol",
+        "stac_item_id": "GOMoil_07601_10052_101_100622_L090_CX_02",
+        "platform": "NASA UAVSAR Aircraft",
+        "datetime": "2010-04-22T14:00:00Z",
+        "instrument_mode": "Quad-Pol PolSAR",
+        "polarizations": [
+          "HH",
+          "HV",
+          "VH",
+          "VV"
+        ],
+        "product_type": "POLSAR_MLC",
+        "coverage_percent": 100.0,
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -89.5,
+                28.0
+              ],
+              [
+                -87.5,
+                28.0
+              ],
+              [
+                -87.5,
+                29.5
+              ],
+              [
+                -89.5,
+                29.5
+              ],
+              [
+                -89.5,
+                28.0
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "workflow": {
+    "current_stage": "REVIEW READY",
+    "last_updated_utc": "2026-09-20T17:38:55.087412+00:00",
+    "stages": {
+      "CASE CREATED": {
+        "completed": true,
+        "timestamp": "2010-04-22T15:00:00Z",
+        "summary": "Case registered in database"
+      },
+      "OBSERVATION SEARCHED": {
+        "completed": true,
+        "timestamp": "2010-04-22T15:05:00Z",
+        "summary": "NASA UAVSAR & radar flight observations catalogued"
+      },
+      "OBSERVATION ATTACHED": {
+        "completed": true,
+        "timestamp": "2010-04-22T15:10:00Z",
+        "summary": "NASA UAVSAR polarimetric observation attached"
+      },
+      "PRODUCT ACQUIRED": {
+        "completed": true,
+        "timestamp": "2010-04-22T15:15:00Z",
+        "summary": "UAVSAR radar product acquired (NASA/JPL)",
+        "data": {
+          "execution_mode": "REAL"
+        }
+      },
+      "SAR PREPROCESSED": {
+        "completed": true,
+        "timestamp": "2010-04-22T15:20:00Z",
+        "summary": "Full-polarimetric matrix calibrated with mineral oil damping ratio",
+        "data": {
+          "execution_mode": "REAL",
+          "radiometric_mode": "SIGMA0_CALIBRATED_DB"
+        }
+      },
+      "SLICK ANALYSED": {
+        "completed": true,
+        "timestamp": "2010-04-22T15:35:00Z",
+        "summary": "OilSeg SmallUNet: 58 heavy crude & emulsified mousse patches segmented",
+        "data": {
+          "execution_mode": "REAL",
+          "polygon_count": 58
+        }
+      },
+      "CANDIDATE SELECTED": {
+        "completed": true,
+        "timestamp": "2010-04-22T15:45:00Z",
+        "summary": "Candidate C9001 selected (Area: 42.50 km2, ML: 0.9340, PHYSICS_ELIGIBLE)",
+        "data": {
+          "execution_mode": "REAL",
+          "selected_candidate": "C9001",
+          "evidence_gate_status": "PHYSICS_ELIGIBLE"
+        }
+      },
+      "HINDCAST COMPLETE": {
+        "completed": true,
+        "timestamp": "2010-04-22T16:30:00Z",
+        "summary": "OpenDrift backward hindcast: continuous release converges on stationary Macondo MC252 wellhead",
+        "data": {
+          "execution_mode": "SYNTHETIC_DEMO"
+        }
+      },
+      "FORECAST COMPLETE": {
+        "completed": true,
+        "timestamp": "2010-04-22T17:00:00Z",
+        "summary": "Forward trajectory forecast predicting transport toward Breton Wildlife Refuge and Mississippi Delta",
+        "data": {
+          "execution_mode": "SYNTHETIC_DEMO",
+          "response_summary": "Forward trajectory forecast computed (SYNTHETIC_DEMO)"
+        }
+      },
+      "RESPONSE PRIORITIZED": {
+        "completed": true,
+        "timestamp": "2010-04-22T17:15:00Z",
+        "summary": "Response prioritized: Highest=Breton National Wildlife Refuge (CRITICAL), window=24.0h",
+        "data": {
+          "engine_execution_mode": "REAL",
+          "effective_evidence_mode": "SYNTHETIC_DEMO",
+          "highest_priority_receptor": {
+            "receptor_name": "Breton National Wildlife Refuge",
+            "priority": "CRITICAL",
+            "receptor_type": "WILDLIFE_REFUGE"
+          },
+          "response_window_hours": 24.0
+        }
+      },
+      "AIS CORRELATED": {
+        "completed": true,
+        "timestamp": "2010-04-22T17:45:00Z",
+        "summary": "NON-VESSEL SOURCE ATTRIBUTION ABSTENTION: Source identified as fixed offshore wellhead (MC252). System correctly refrains from vessel blame.",
+        "data": {
+          "execution_mode": "REAL",
+          "source_class": "FIXED_OFFSHORE_INFRASTRUCTURE",
+          "attribution_abstention": true,
+          "abstention_rationale": "Release origin corresponds to known offshore drilling installation (Macondo Well, MC252 Block). Commercial vessel blaming abstained."
+        }
+      },
+      "REVIEW READY": {
+        "completed": true,
+        "timestamp": "2026-09-20T17:38:55.087412+00:00",
+        "summary": "Final incident review report generated",
+        "data": {
+          "report_id": "VARUNA-REPORT-R005_DEEPWATER_HORIZON",
+          "generated_at_utc": "2026-09-20T17:38:55.087412+00:00",
+          "case_id": "R005_DEEPWATER_HORIZON",
+          "case_name": "Deepwater Horizon Macondo Well Blowout",
+          "stage_execution_modes": {
+            "PRODUCT ACQUIRED": "REAL",
+            "SAR PREPROCESSED": "REAL",
+            "SLICK ANALYSED": "REAL",
+            "CANDIDATE SELECTED": "REAL",
+            "HINDCAST COMPLETE": "SYNTHETIC_DEMO",
+            "FORECAST COMPLETE": "SYNTHETIC_DEMO",
+            "RESPONSE PRIORITIZED": "REAL",
+            "AIS CORRELATED": "REAL"
+          },
+          "geography": {
+            "region": "Mississippi Canyon Block 252, Northern Gulf of Mexico (USA)",
+            "latitude": 28.7366,
+            "longitude": -88.366
+          },
+          "response_intelligence": {
+            "what_was_observed": "Dual-polarization SAR backscatter depression evaluated for oil-like evidence.",
+            "slick_characterisation": {},
+            "evidence_gate_qualification": "PHYSICS_ELIGIBLE",
+            "lookalike_assessment": "Candidate passed the current evidence gate; reduced likelihood of biogenic/wind lookalike under evaluated criteria.",
+            "where_is_it_moving": "Forward trajectory forecast computed (SYNTHETIC_DEMO)",
+            "highest_priority_receptor": {
+              "receptor_name": "Breton National Wildlife Refuge",
+              "priority": "CRITICAL",
+              "receptor_type": "WILDLIFE_REFUGE"
+            },
+            "response_window_hours": 24.0,
+            "engine_execution_mode": "REAL",
+            "effective_evidence_mode": "SYNTHETIC_DEMO",
+            "resources_at_risk": "Coastal shoreline downstream monitored; containment staging advised.",
+            "probable_origin": {},
+            "investigative_candidates": []
+          },
+          "uncertainty_and_limitations": {
+            "model_uncertainty": "Empirical OIL_EVIDENCE_SCORE from SmallUNet. Real-world generalization not yet validated.",
+            "atmospheric_uncertainty": "Metocean forcing resolution and local wind shear gradients may affect drift precision.",
+            "ais_limitations": "AIS proximity is not proof of discharge. Candidates represent investigative prioritization only."
+          },
+          "provenance_chain": {
+            "pipeline_version": "Varuna 2.4.0 (Truthfulness Patched Build)",
+            "model_checkpoint_sha256": null,
+            "case_created_at": "2010-04-22T15:00:00Z",
+            "stage_execution_modes": {
+              "PRODUCT ACQUIRED": "REAL",
+              "SAR PREPROCESSED": "REAL",
+              "SLICK ANALYSED": "REAL",
+              "CANDIDATE SELECTED": "REAL",
+              "HINDCAST COMPLETE": "SYNTHETIC_DEMO",
+              "FORECAST COMPLETE": "SYNTHETIC_DEMO",
+              "RESPONSE PRIORITIZED": "REAL",
+              "AIS CORRELATED": "REAL"
+            },
+            "completed_stages": [
+              "CASE CREATED",
+              "OBSERVATION SEARCHED",
+              "OBSERVATION ATTACHED",
+              "PRODUCT ACQUIRED",
+              "SAR PREPROCESSED",
+              "SLICK ANALYSED",
+              "CANDIDATE SELECTED",
+              "HINDCAST COMPLETE",
+              "FORECAST COMPLETE",
+              "RESPONSE PRIORITIZED",
+              "AIS CORRELATED",
+              "REVIEW READY"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

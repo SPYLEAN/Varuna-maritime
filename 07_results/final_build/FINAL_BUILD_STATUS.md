@@ -1,9 +1,9 @@
 # VARUNA — Final Build Status & Truthfulness Matrix
 
-**Timestamp:** 2026-09-19T15:45:00Z  
+**Timestamp:** 2026-09-20T21:45:00+05:30  
 **Repository:** `SPYLEAN/Varuna-maritime`  
-**Branch:** `final/varuna-24h-build`  
-**Base Commit:** `1836737`  
+**Branch:** `hackathon/response-intelligence-ui`  
+**Base Commit:** `14e52e8`  
 **Current State:** `TRUTHFULNESS_VERIFIED` | `ALL_TESTS_PASSING`
 
 ---
@@ -14,11 +14,15 @@ All automated regression, unit, and scientific truthfulness test suites passed w
 
 | Suite | Scope | Passed | Failed | Skipped | Total | Duration |
 |---|---|---|---|---|---|---|
-| `backend/tests` | API, Case Lifecycle, Calibrated SAR, GeoJSON Vectorizer, OpenDrift, AIS Kinematics, Workflow, Truthfulness Contracts | 231 | 0 | 1* | 232 | 445.62s |
-| `ml/tests` | Dual-pol SmallUNet, GeoTIFF Data Loaders, Metrics, Inference Pipeline, Readiness Gates | 42 | 0 | 0 | 42 | 51.22s |
-| **Total Combined** | **End-to-End System** | **273** | **0** | **1** | **274** | **496.84s** |
+| `backend/tests` | API, Case Lifecycle, Calibrated SAR, GeoJSON Vectorizer, OpenDrift, AIS Kinematics, Workflow, Truthfulness Contracts | 255 | 0 | 1* | 256 | ~445s |
+| `ml/tests` | Dual-pol SmallUNet, GeoTIFF Data Loaders, Metrics, Inference Pipeline, Readiness Gates | 42 | 0 | 0 | 42 | ~51s |
+| **Total Combined** | **End-to-End System** | **297** | **0** | **1** | **298** | **~496s** |
 
 *\*Note: 1 skipped test in backend suite is `test_live_cdse_network_credential_ping` which gracefully skips when Copernicus CDSE credentials are not set in the host environment.*
+
+### Reconciled `test_response_priority.py` Test Count (12 Unit Tests vs 13 Total Functions)
+- **12 Pure Unit Tests (Tests 1–12):** Exhaustively verify backend response priority calculations, proximity weighting, sensitivity classification (`CRITICAL`, `HIGH`, `MEDIUM`, `MONITOR`, `LOW`), deterministic priority formulas, and effective evidence mode calculation (`compute_effective_evidence_mode`, `evaluate_receptor_priority`, `evaluate_case_response_priorities`).
+- **1 UI Contract Test (Test 13 `test_ui_does_not_label_demo_trajectory_real`):** Audits `ops_console/index.html` and `ops_console/app.js` to ensure the interface truthfully reports `SYNTHETIC_DEMO` for demonstration trajectories, strictly forbidding the claim of `REAL` trajectory when demonstration forcing was utilized. This test validates the contract between mathematical truth and operator presentation.
 
 ---
 

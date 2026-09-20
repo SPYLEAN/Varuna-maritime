@@ -120,62 +120,41 @@
 <body class="bg-background text-on-surface h-screen w-screen overflow-hidden flex flex-col font-body-md select-none">
 
   <!-- ================================================== -->
-  <!-- 1. MARITIME COMMAND CENTER TOP HEADER -->
+  <!-- 1. GLOBAL ENTERPRISE TOP NAVBAR (SAP/FIORI-INSPIRED) -->
   <!-- ================================================== -->
-  <header class="h-[52px] w-full flex items-center border-b border-slate-800 bg-[#080d18] justify-between px-4 z-50 select-none">
-    <div class="flex items-center space-x-5 h-full">
-      <!-- VARUNA BRAND -->
-      <div class="flex items-center space-x-2.5 cursor-pointer" onclick="window.switchDomain('OVERVIEW')">
-        <div class="w-8 h-8 rounded bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-sm">
-          <span class="material-symbols-outlined text-[20px]">radar</span>
-        </div>
-        <div class="flex flex-col">
-          <div class="flex items-center space-x-2">
-            <span class="font-bold text-base tracking-wider text-slate-100 font-mono">VARUNA</span>
-            <span class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-cyan-950/60 text-cyan-400 border border-cyan-800/60">OPS 2.4</span>
-          </div>
-          <span class="text-[10px] font-mono tracking-wider text-slate-400 uppercase -mt-0.5">Maritime Response Intelligence</span>
-        </div>
+  <header class="h-[48px] w-full flex items-center border-b border-outline-variant bg-surface-container justify-between px-4 z-50">
+    <div class="flex items-center space-x-6 h-full">
+      <div class="font-display-lg text-display-lg text-primary uppercase tracking-tighter cursor-pointer flex items-center gap-2" onclick="window.switchDomain('HOME')">
+        <span>VARUNA</span>
+        <span class="text-[10px] font-data-mono bg-surface-variant text-on-surface-variant px-1.5 py-0.5 rounded border border-outline-variant">ENTERPRISE v1.0</span>
       </div>
-
-      <div class="h-6 w-px bg-slate-800 my-auto"></div>
-
-      <!-- INCIDENT CONTEXT SELECTOR -->
-      <div class="flex items-center space-x-2">
-        <span class="text-[11px] font-mono text-slate-400 font-semibold">INCIDENT:</span>
-        <select id="topbar-incident-select" class="bg-slate-900 border border-slate-700/80 rounded px-2.5 py-1 text-xs text-cyan-300 font-mono font-bold focus:outline-none focus:border-cyan-500 cursor-pointer" onchange="window.selectTopbarIncident(this.value)">
-          <option value="VARUNA-CASE-2024-0410-NS01" selected>VARUNA-CASE-2024-0410-NS01 (North Sea)</option>
-          <option value="R001_WAKASHIO">CASE R001 — Mauritius Wakashio Incident</option>
-        </select>
-        <span id="topbar-incident-status" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/40">ACTIVE INCIDENT</span>
-      </div>
+      
+      <!-- GLOBAL TOP MODULES -->
+      <nav class="flex h-full items-center space-x-4 ml-2">
+        <div class="nav-module text-primary font-headline-sm hover:bg-surface-variant transition-colors cursor-pointer h-full flex items-center px-2.5 font-semibold" data-module="OPERATIONS" onclick="window.switchDomain('HOME')">OPERATIONS</div>
+        <div class="nav-module text-on-surface-variant font-headline-sm hover:bg-surface-variant transition-colors cursor-pointer h-full flex items-center px-2.5" data-module="CASES" onclick="window.switchDomain('CASES')">CASES</div>
+        <div class="nav-module text-on-surface-variant font-headline-sm hover:bg-surface-variant transition-colors cursor-pointer h-full flex items-center px-2.5" data-module="SATELLITE" onclick="window.switchDomain('OBSERVE')">SATELLITE DATA</div>
+        <div class="nav-module text-on-surface-variant font-headline-sm hover:bg-surface-variant transition-colors cursor-pointer h-full flex items-center px-2.5" data-module="ANALYSIS" onclick="window.switchDomain('ANALYZE')">ANALYSIS</div>
+        <div class="nav-module text-on-surface-variant font-headline-sm hover:bg-surface-variant transition-colors cursor-pointer h-full flex items-center px-2.5" data-module="PHYSICS" onclick="window.switchDomain('RECONSTRUCT')">PHYSICS</div>
+        <div class="nav-module text-on-surface-variant font-headline-sm hover:bg-surface-variant transition-colors cursor-pointer h-full flex items-center px-2.5" data-module="VESSELS" onclick="window.switchDomain('ATTRIBUTE')">VESSEL INTELLIGENCE</div>
+        <div class="nav-module text-on-surface-variant font-headline-sm hover:bg-surface-variant transition-colors cursor-pointer h-full flex items-center px-2.5" data-module="REPORTS" onclick="window.switchDomain('REVIEW')">REPORTS</div>
+      </nav>
     </div>
 
-    <!-- RIGHT STATUS BADGES & CONTROLS -->
     <div class="flex items-center space-x-3">
-      <!-- BACKEND / SYSTEM HEALTH -->
-      <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-xs font-mono">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="text-slate-400 text-[11px]">API:</span>
-        <span class="text-emerald-400 font-bold text-[11px]" id="topbar-backend-status">ONLINE (8000)</span>
+      <!-- AI INTELLIGENCE STATUS BADGE -->
+      <div class="flex items-center space-x-1.5 bg-surface-container-low px-2 py-1 rounded border border-outline-variant cursor-pointer hover:border-primary/50 transition-colors" id="topbar-intelligence-indicator" onclick="window.toggleIntelligenceDrawer()" title="VARUNA Intelligence (Decision Support)">
+        <span class="material-symbols-outlined text-[14px] text-warning-amber" id="topbar-ai-icon">psychology</span>
+        <span class="text-[10px] font-data-mono text-outline">AI:</span>
+        <span class="text-[10px] font-bold font-data-mono px-1.5 py-0.5 rounded bg-warning-amber/15 text-warning-amber" id="topbar-ai-mode">DETERMINISTIC_FALLBACK</span>
       </div>
 
-      <!-- EXECUTION-MODE STATUS BADGE -->
-      <div class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-amber-950/30 border border-amber-600/40 text-xs font-mono" title="Truthfulness Guarantee: Pipeline Execution Mode">
-        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-        <span class="text-slate-400 text-[11px]">MODE:</span>
-        <span class="text-amber-300 font-bold text-[11px]" id="topbar-execution-mode">SYNTHETIC_DEMO</span>
+      <div class="flex items-center space-x-2 bg-surface-container-low px-2 py-1 rounded border border-outline-variant">
+        <span class="text-[10px] font-data-mono text-outline">MODE:</span>
+        <button class="text-xs font-semibold text-primary px-1.5 py-0.5 rounded bg-surface-variant" id="btn-toggle-guided-mode" onclick="window.toggleGuidedMode()">GUIDED</button>
       </div>
-
-      <div class="h-5 w-px bg-slate-800 my-auto"></div>
-
-      <!-- UTILITY ICONS -->
-      <button class="w-7 h-7 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer" onclick="window.toggleDataHealthModal()" title="System Health & Diagnostic Settings">
-        <span class="material-symbols-outlined text-[18px]">settings</span>
-      </button>
-      <button class="w-7 h-7 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer" onclick="window.toggleProvenanceDrawer()" title="Provenance & Scientific Audit">
-        <span class="material-symbols-outlined text-[18px]">help</span>
-      </button>
+      <span class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer text-[20px]" onclick="window.toggleDataHealthModal()" title="System Health & Settings">settings</span>
+      <span class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors cursor-pointer text-[20px]" onclick="window.toggleProvenanceDrawer()" title="Provenance & Help">help</span>
     </div>
   </header>
 
@@ -184,84 +163,59 @@
   <!-- ================================================== -->
   <div class="flex flex-1 overflow-hidden">
     
-    <!-- PERSISTENT LEFT NAVIGATION -->
-    <aside class="w-[240px] h-full flex flex-col bg-[#0b1220] border-r border-slate-800/90 z-40 fixed left-0 top-[52px] bottom-[28px]">
-      <div class="p-3.5 border-b border-slate-800/80 bg-slate-900/40">
-        <div class="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-bold flex items-center space-x-1.5">
-          <span class="material-symbols-outlined text-[14px]">shield</span>
-          <span>RESPONSE CONSOLE</span>
-        </div>
-        <div class="font-bold text-sm text-slate-100 mt-1 truncate" id="sidebar-case-title">North Sea Incident</div>
-        <div class="text-[11px] font-mono text-slate-400 truncate mt-0.5" id="sidebar-case-sub">VARUNA-CASE-2024-0410-NS01</div>
+    <!-- LEFT SIDEBAR NAVIGATION (STITCH INSPIRED) -->
+    <aside class="w-[240px] h-full flex flex-col bg-surface-container-low border-r border-outline-variant z-40 fixed left-0 top-[48px] bottom-[28px]">
+      <div class="p-4 border-b border-outline-variant">
+        <div class="font-headline-sm text-headline-sm text-on-surface" id="sidebar-case-title">VARUNA OPERATIONS</div>
+        <div class="font-data-mono-sm text-data-mono-sm text-on-surface-variant mt-1" id="sidebar-case-sub">Enterprise Management</div>
       </div>
       
-      <nav class="flex-1 overflow-y-auto py-2.5 px-2 space-y-1 font-mono text-xs">
-        <div class="px-2.5 py-1 text-[10px] uppercase font-bold text-slate-500 tracking-wider">RESPONSE INTELLIGENCE</div>
-
-        <a class="sn-nav-btn flex items-center px-3 py-2 rounded text-slate-200 hover:bg-slate-800/70 cursor-pointer transition-colors group" data-domain="OVERVIEW" onclick="window.switchDomain('OVERVIEW')">
-          <span class="material-symbols-outlined mr-2.5 text-[18px] text-cyan-400">dashboard</span>
-          <div class="flex flex-col">
-            <span class="font-bold">Overview</span>
-            <span class="text-[10px] text-slate-400 font-sans">Command Center</span>
-          </div>
+      <nav class="flex-1 overflow-y-auto py-2">
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 bg-primary-container text-on-primary-container border-l-2 border-primary font-body-sm text-body-sm rounded cursor-pointer" data-domain="HOME" onclick="window.switchDomain('HOME')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">space_dashboard</span>
+          Operations Home
         </a>
-
-        <a class="sn-nav-btn flex items-center px-3 py-2 rounded text-slate-300 hover:bg-slate-800/70 cursor-pointer transition-colors group" data-domain="OBSERVE" onclick="window.switchDomain('OBSERVE')">
-          <span class="material-symbols-outlined mr-2.5 text-[18px] text-slate-400 group-hover:text-cyan-400">satellite_alt</span>
-          <div class="flex flex-col">
-            <span class="font-semibold">Observation</span>
-            <span class="text-[10px] text-slate-400 font-sans">SAR &amp; Dual-Pol</span>
-          </div>
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant font-body-sm text-body-sm rounded cursor-pointer" data-domain="CASES" onclick="window.switchDomain('CASES')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">folder_open</span>
+          Cases Registry
         </a>
-
-        <a class="sn-nav-btn flex items-center px-3 py-2 rounded text-slate-300 hover:bg-slate-800/70 cursor-pointer transition-colors group" data-domain="ANALYZE" onclick="window.switchDomain('ANALYZE')">
-          <span class="material-symbols-outlined mr-2.5 text-[18px] text-slate-400 group-hover:text-cyan-400">query_stats</span>
-          <div class="flex flex-col">
-            <span class="font-semibold">Slick Analysis</span>
-            <span class="text-[10px] text-slate-400 font-sans">Segmentation &amp; Gate</span>
-          </div>
+        
+        <div class="my-2 px-4 text-[10px] font-data-mono uppercase tracking-wider text-outline border-t border-outline-variant/40 pt-2">CASE WORKSPACE</div>
+        
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant font-body-sm text-body-sm rounded cursor-pointer" data-domain="OVERVIEW" onclick="window.switchDomain('OVERVIEW')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">info</span>
+          Case Overview
         </a>
-
-        <a class="sn-nav-btn flex items-center px-3 py-2 rounded text-slate-300 hover:bg-slate-800/70 cursor-pointer transition-colors group" data-domain="FORECAST" onclick="window.switchDomain('FORECAST')">
-          <span class="material-symbols-outlined mr-2.5 text-[18px] text-slate-400 group-hover:text-cyan-400">air</span>
-          <div class="flex flex-col">
-            <span class="font-semibold">Impact Forecast</span>
-            <span class="text-[10px] text-slate-400 font-sans">Drift &amp; Uncertainty</span>
-          </div>
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant font-body-sm text-body-sm rounded cursor-pointer" data-domain="OBSERVE" onclick="window.switchDomain('OBSERVE')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">radar</span>
+          01 Observation
         </a>
-
-        <a class="sn-nav-btn flex items-center px-3 py-2 rounded text-slate-300 hover:bg-slate-800/70 cursor-pointer transition-colors group" data-domain="VESSEL" onclick="window.switchDomain('VESSEL')">
-          <span class="material-symbols-outlined mr-2.5 text-[18px] text-slate-400 group-hover:text-cyan-400">directions_boat</span>
-          <div class="flex flex-col">
-            <span class="font-semibold">Vessel Intelligence</span>
-            <span class="text-[10px] text-slate-400 font-sans">AIS Candidate Triage</span>
-          </div>
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant font-body-sm text-body-sm rounded cursor-pointer" data-domain="ANALYZE" onclick="window.switchDomain('ANALYZE')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">analytics</span>
+          02 Slick Analysis
         </a>
-
-        <a class="sn-nav-btn flex items-center px-3 py-2 rounded text-slate-300 hover:bg-slate-800/70 cursor-pointer transition-colors group" data-domain="EVIDENCE" onclick="window.switchDomain('EVIDENCE')">
-          <span class="material-symbols-outlined mr-2.5 text-[18px] text-slate-400 group-hover:text-cyan-400">verified</span>
-          <div class="flex flex-col">
-            <span class="font-semibold">Evidence</span>
-            <span class="text-[10px] text-slate-400 font-sans">Provenance &amp; Review</span>
-          </div>
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant font-body-sm text-body-sm rounded cursor-pointer" data-domain="RECONSTRUCT" onclick="window.switchDomain('RECONSTRUCT')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">layers</span>
+          03 Reconstruction
         </a>
-
-        <div class="my-2 border-t border-slate-800/80 pt-2 px-2.5 text-[10px] uppercase font-bold text-slate-500 tracking-wider">INCIDENT MANAGEMENT</div>
-
-        <a class="sn-nav-btn flex items-center px-3 py-1.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800/70 cursor-pointer transition-colors" data-domain="CASES" onclick="window.switchDomain('CASES')">
-          <span class="material-symbols-outlined mr-2.5 text-[16px]">folder_open</span>
-          <span>Cases Registry</span>
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant font-body-sm text-body-sm rounded cursor-pointer" data-domain="ATTRIBUTE" onclick="window.switchDomain('ATTRIBUTE')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">directions_boat</span>
+          04 Vessel Intelligence
         </a>
-        <a class="sn-nav-btn flex items-center px-3 py-1.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800/70 cursor-pointer transition-colors" data-domain="ACTIVITY" onclick="window.switchDomain('ACTIVITY')">
-          <span class="material-symbols-outlined mr-2.5 text-[16px]">history</span>
-          <span>Activity Audit</span>
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant font-body-sm text-body-sm rounded cursor-pointer" data-domain="REVIEW" onclick="window.switchDomain('REVIEW')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">rate_review</span>
+          05 Review & Briefing
+        </a>
+        <a class="sn-nav-btn flex items-center px-4 py-2 mx-2 mb-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant font-body-sm text-body-sm rounded cursor-pointer" data-domain="ACTIVITY" onclick="window.switchDomain('ACTIVITY')">
+          <span class="material-symbols-outlined mr-3 text-[18px]">history</span>
+          Case Activity
         </a>
       </nav>
 
-      <div class="border-t border-slate-800/90 p-2.5 bg-slate-900/30">
-        <button class="w-full h-8 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs uppercase tracking-wider font-bold rounded flex items-center justify-center space-x-1.5 transition-colors cursor-pointer shadow-sm" onclick="window.openNewCaseWizard()">
+      <div class="border-t border-outline-variant p-2">
+        <button class="w-full h-8 bg-primary hover:bg-primary-container text-on-primary font-data-mono-sm uppercase tracking-wider font-bold rounded flex items-center justify-center space-x-2 transition-colors cursor-pointer" onclick="window.openNewCaseWizard()">
           <span class="material-symbols-outlined text-[16px]">add</span>
-          <span>NEW INCIDENT</span>
+          <span>NEW CASE</span>
         </button>
       </div>
     </aside>
@@ -424,291 +378,74 @@
       </section>
 
       <!-- ================================================== -->
-      <!-- SCREEN 1: OVERVIEW / COMMAND CENTER (LANDING SCREEN) -->
+      <!-- MODULE: CASE OVERVIEW PAGE (`#domain-overview`) -->
       <!-- ================================================== -->
-      <section class="sn-domain-workspace flex flex-col flex-1 h-full w-full overflow-hidden" id="domain-overview">
-        <!-- 3-COLUMN PRIMARY WORKSPACE: LEFT NAV + CENTER MAP (approx 60%) + RIGHT RESPONSE INTEL (approx 40%) -->
-        <div class="flex flex-1 overflow-hidden">
-          
-          <!-- CENTER COLUMN: MARITIME COMMAND SITUATION MAP (~60%) -->
-          <div class="flex-[3] flex flex-col relative border-r border-slate-800 bg-[#080d18] min-w-0">
-            <!-- MAP CONTROL / HORIZON TOOLBAR -->
-            <div class="h-10 px-3.5 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between z-20 font-mono text-xs text-slate-300">
-              <div class="flex items-center space-x-2.5">
-                <span class="material-symbols-outlined text-cyan-400 text-[18px]">radar</span>
-                <span class="font-bold tracking-wide text-slate-100 uppercase">MARITIME SITUATION DISPLAY</span>
-                <span class="text-slate-600">|</span>
-                <span id="ov-map-coords" class="text-cyan-400 font-semibold">53.5000° N, 02.5000° E</span>
-                <span class="text-[10px] text-slate-400">(EPSG:4326)</span>
-              </div>
-
-              <!-- HORIZON SELECTION BUTTONS -->
-              <div class="flex items-center space-x-1 bg-slate-950/80 p-0.5 rounded border border-slate-800">
-                <span class="text-[10px] text-slate-400 uppercase px-1 font-semibold">HORIZON:</span>
-                <button class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-600 text-white transition-colors" id="btn-horizon-all" onclick="window.setOverviewHorizon('ALL')">ALL</button>
-                <button class="px-2 py-0.5 rounded text-[11px] text-slate-300 hover:bg-slate-800 transition-colors" id="btn-horizon-now" onclick="window.setOverviewHorizon('NOW')">NOW</button>
-                <button class="px-2 py-0.5 rounded text-[11px] text-slate-300 hover:bg-slate-800 transition-colors" id="btn-horizon-6h" onclick="window.setOverviewHorizon('6H')">+6H</button>
-                <button class="px-2 py-0.5 rounded text-[11px] text-slate-300 hover:bg-slate-800 transition-colors" id="btn-horizon-12h" onclick="window.setOverviewHorizon('12H')">+12H</button>
-                <button class="px-2 py-0.5 rounded text-[11px] text-slate-300 hover:bg-slate-800 transition-colors" id="btn-horizon-24h" onclick="window.setOverviewHorizon('24H')">+24H</button>
-                <button class="px-2 py-0.5 rounded text-[11px] text-slate-300 hover:bg-slate-800 transition-colors" id="btn-horizon-48h" onclick="window.setOverviewHorizon('48H')">+48H ENVELOPE</button>
-              </div>
-
-              <!-- VIEW CONTROLS -->
-              <div class="flex items-center space-x-1">
-                <button class="p-1 rounded hover:bg-slate-800 text-slate-300 cursor-pointer" onclick="window.fitOverviewBounds()" title="Fit Incident Scene"><span class="material-symbols-outlined text-[16px]">my_location</span></button>
-                <button class="p-1 rounded hover:bg-slate-800 text-slate-300 cursor-pointer" onclick="window.zoomInMap('overview')" title="Zoom In"><span class="material-symbols-outlined text-[16px]">add</span></button>
-                <button class="p-1 rounded hover:bg-slate-800 text-slate-300 cursor-pointer" onclick="window.zoomOutMap('overview')" title="Zoom Out"><span class="material-symbols-outlined text-[16px]">remove</span></button>
-              </div>
+      <section class="sn-domain-workspace p-6 max-w-[1400px] mx-auto w-full hidden" id="domain-overview">
+        <!-- COMPACT OBJECT PAGE HEADER -->
+        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-4 mb-6">
+          <div class="flex justify-between items-start">
+            <div>
+              <span class="text-[10px] font-data-mono text-outline uppercase">CASE OBJECT PAGE</span>
+              <h1 class="text-xl font-bold text-primary mt-0.5" id="ov-case-id-title">CASE R001 — Mauritius Incident</h1>
+              <p class="text-xs text-on-surface-variant mt-1" id="ov-case-subtitle">Point d'Esny, Mauritius | Historical Case Review Benchmark</p>
             </div>
-
-            <!-- LEAFLET MAP CANVAS CONTAINER -->
-            <div id="overview-map" class="flex-1 w-full h-full z-10"></div>
-
-            <!-- BOTTOM FLOATING MAP LEGEND & METOCEAN STATUS OVERLAY -->
-            <div class="absolute bottom-3 left-3 right-3 z-20 flex justify-between items-end pointer-events-none">
-              <!-- MAP LEGEND OVERLAY -->
-              <div class="pointer-events-auto bg-[#0b1220]/95 border border-slate-700/80 backdrop-blur-md rounded p-3 font-mono text-[11px] space-y-1.5 shadow-2xl max-w-md">
-                <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center justify-between pb-1 border-b border-slate-800">
-                  <span class="text-slate-200">SITUATION OVERLAYS</span>
-                  <span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30">SYNTHETIC_DEMO FORCING</span>
-                </div>
-                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-slate-300 pt-0.5">
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-3 h-3 rounded-sm bg-sky-500 border border-sky-300"></span>
-                    <span>Oil-like Anomaly</span>
-                  </div>
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-3 h-3 rounded-sm border border-dashed border-cyan-400"></span>
-                    <span>Probable Extent</span>
-                  </div>
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-4 h-1 bg-cyan-400 inline-block rounded-full"></span>
-                    <span>6h Trajectory</span>
-                  </div>
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-4 h-1 bg-teal-400 inline-block rounded-full"></span>
-                    <span>12h / 24h Vectors</span>
-                  </div>
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-3 h-3 rounded bg-sky-600/30 border border-sky-400"></span>
-                    <span>48h Uncertainty</span>
-                  </div>
-                  <div class="flex items-center space-x-1.5">
-                    <span class="w-3 h-3 rounded-full bg-red-500 border border-red-300 animate-pulse"></span>
-                    <span class="text-amber-300 font-bold">Priority Receptor</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- METOCEAN DRIFT KINEMATICS -->
-              <div class="pointer-events-auto bg-[#0b1220]/95 border border-slate-700/80 backdrop-blur-md rounded px-3.5 py-2.5 font-mono text-[11px] text-right space-y-0.5 shadow-2xl">
-                <div class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">DRIFT KINEMATICS (ERA5 + HYCOM)</div>
-                <div class="text-cyan-400 font-bold text-xs">VECTOR: 068° ENE @ 0.32 m/s (0.62 kn)</div>
-                <div class="text-slate-400 text-[10px]">UNCERTAINTY CORRIDOR: ±4.8 km @ 24h</div>
-              </div>
+            <div class="flex space-x-2">
+              <span class="px-2.5 py-1 rounded bg-surface-variant border border-outline-variant font-data-mono text-xs text-warning-amber" id="ov-badge-status">IN REVIEW</span>
+              <button class="px-3 py-1 bg-primary text-on-primary font-data-mono text-xs font-bold rounded" onclick="window.switchDomain('OBSERVE')">CONTINUE INVESTIGATION →</button>
             </div>
           </div>
 
-          <!-- RIGHT COLUMN: RESPONSE INTELLIGENCE PANEL (~40%) -->
-          <div class="flex-[2] max-w-[460px] min-w-[360px] bg-[#0b1220] border-l border-slate-800 flex flex-col z-20 overflow-y-auto">
-            <!-- PANEL TITLE -->
-            <div class="p-3.5 border-b border-slate-800 bg-slate-900/60 flex justify-between items-center">
-              <div>
-                <h2 class="font-bold text-sm text-slate-100 tracking-wide uppercase font-mono">RESPONSE INTELLIGENCE</h2>
-                <p class="text-[11px] text-slate-400 mt-0.5">Real-time Threat Qualification &amp; Mitigation Guidance</p>
-              </div>
-              <span class="badge-mode-synthetic">SYNTHETIC_DEMO</span>
+          <!-- GUIDED WORKFLOW PROGRESS BAR -->
+          <div class="mt-4 pt-3 border-t border-outline-variant/50 flex justify-between font-data-mono text-[10px]">
+            <div class="flex items-center space-x-1.5 text-success-green">
+              <span class="w-2 h-2 rounded-full bg-success-green"></span>
+              <span>OBSERVATION (COMPLETE)</span>
             </div>
-
-            <!-- CARDS CONTAINER -->
-            <div class="p-3.5 space-y-3 font-sans text-xs">
-
-              <!-- CARD 1: CURRENT EVENT -->
-              <div class="varuna-intel-card">
-                <div class="flex justify-between items-center">
-                  <span class="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider">CURRENT EVENT</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">SAR DETECTION</span>
-                </div>
-                <div class="text-base font-bold text-slate-100 mt-1 font-mono">Oil-like surface anomaly</div>
-                <p class="text-[11px] text-slate-300 mt-1 leading-relaxed">
-                  Dual-polarization SAR backscatter depression displaying 11.2 dB VV damping and 8.7 dB VH damping. High spatial contrast anomaly.
-                </p>
-              </div>
-
-              <!-- CARD 2: AREA -->
-              <div class="varuna-intel-card">
-                <div class="flex justify-between items-center">
-                  <span class="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider">ESTIMATED AREA</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">SYNTHETIC_DEMO</span>
-                </div>
-                <div class="flex items-baseline space-x-2 mt-1">
-                  <span class="text-2xl font-bold font-mono text-cyan-400" id="ov-intel-area">1.24 km²</span>
-                  <span class="text-[11px] text-slate-400 font-mono">(12,420 pixels)</span>
-                </div>
-                <p class="text-[11px] text-slate-400 mt-1 font-mono">
-                  SmallUNet segmentation fallback. Solidity: 0.782 | Elongation: 2.351 (continuous elongated surface streak).
-                </p>
-              </div>
-
-              <!-- CARD 3: EVIDENCE GATE -->
-              <div class="varuna-intel-card">
-                <div class="flex justify-between items-center">
-                  <span class="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider">EVIDENCE GATE</span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 font-bold">REAL EVAL</span>
-                </div>
-                <div class="mt-1.5 flex items-center space-x-2">
-                  <span class="badge-gate-eligible">
-                    <span class="material-symbols-outlined text-[16px]">verified</span>
-                    <span>PHYSICS_ELIGIBLE</span>
-                  </span>
-                  <span class="text-xs font-mono text-slate-300">Confidence: <strong class="text-cyan-300">0.882</strong></span>
-                </div>
-                <p class="text-[11px] text-slate-300 mt-2 leading-relaxed">
-                  Candidate passed look-alike triage criteria; reduced likelihood of biogenic film or low-wind damping. Physical transport qualified.
-                </p>
-              </div>
-
-              <!-- CARD 4: RESPONSE WINDOW -->
-              <div class="varuna-intel-card bg-gradient-to-br from-[#0f172a] to-[#162033]">
-                <div class="flex justify-between items-center">
-                  <span class="text-[10px] font-mono uppercase font-bold text-amber-400 tracking-wider flex items-center space-x-1">
-                    <span class="material-symbols-outlined text-[14px]">timer</span>
-                    <span>RESPONSE WINDOW</span>
-                  </span>
-                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">SYNTHETIC_DEMO</span>
-                </div>
-                <div class="mt-2 flex items-baseline space-x-3">
-                  <span class="varuna-timer-display" id="ov-intel-window">08h 42m</span>
-                  <span class="text-xs font-mono text-slate-300 font-semibold">REMAINING RESPONSE TIME</span>
-                </div>
-                <p class="text-[11px] text-slate-400 mt-1 font-mono">
-                  Estimated window before projected trajectory envelope contacts primary shoreline buffer.
-                </p>
-              </div>
-
-              <!-- CARD 5: HIGHEST PRIORITY RECEPTOR -->
-              <div class="varuna-intel-card">
-                <div class="flex justify-between items-center">
-                  <span class="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider">HIGHEST PRIORITY RECEPTOR</span>
-                  <span class="badge-priority-high">PRIORITY: HIGH</span>
-                </div>
-                <div class="text-sm font-bold text-slate-100 mt-1 font-mono">Coastal Wetland Zone A</div>
-                <div class="grid grid-cols-2 gap-2 mt-2 font-mono text-[11px] bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <div>
-                    <span class="text-slate-400">EST. ARRIVAL:</span>
-                    <div class="text-amber-400 font-bold">08h 42m</div>
-                  </div>
-                  <div>
-                    <span class="text-slate-400">SENSITIVITY:</span>
-                    <div class="text-red-300 font-bold">HIGH (Intertidal)</div>
-                  </div>
-                </div>
-                <div class="flex justify-between items-center mt-2 pt-1 border-t border-slate-800/60 font-mono text-[10px] text-slate-400">
-                  <span>SECONDARY: Fishing Ground B</span>
-                  <span class="text-amber-400 font-semibold">17h (MEDIUM)</span>
-                </div>
-              </div>
-
-              <!-- CARD 6: RECOMMENDED NEXT ACTION -->
-              <div class="varuna-intel-card border-cyan-800/60 bg-cyan-950/20">
-                <div class="flex items-center space-x-1.5 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-wider">
-                  <span class="material-symbols-outlined text-[16px]">priority_high</span>
-                  <span>RECOMMENDED NEXT ACTION</span>
-                </div>
-                <div class="text-xs font-bold text-slate-100 mt-1 font-mono">
-                  Prioritize monitoring and containment staging.
-                </div>
-                <ul class="text-[11px] text-slate-300 mt-2 space-y-1 list-disc list-inside">
-                  <li>Deploy protective booming at Coastal Wetland Zone A inlet.</li>
-                  <li>Stage offshore skimmers along 068° ENE drift corridor.</li>
-                  <li>Cross-reference candidate vessel trajectories (investigative prioritization).</li>
-                </ul>
-              </div>
-
-              <!-- BOTTOM ATTRIBUTION NOTICE -->
-              <div class="p-2.5 rounded bg-slate-900/80 border border-slate-800 text-[10px] font-mono text-slate-400 leading-relaxed">
-                <strong class="text-slate-200">INVESTIGATION PRINCIPLE:</strong> Candidate ranking establishes spatiotemporal compatibility only. Attribution never equals guilt. Values marked <span class="text-amber-400 font-bold">SYNTHETIC_DEMO</span> are generated for system demonstration.
-              </div>
-
+            <div class="text-outline">→</div>
+            <div class="flex items-center space-x-1.5 text-success-green">
+              <span class="w-2 h-2 rounded-full bg-success-green"></span>
+              <span>DETECTION (COMPLETE)</span>
+            </div>
+            <div class="text-outline">→</div>
+            <div class="flex items-center space-x-1.5 text-success-green">
+              <span class="w-2 h-2 rounded-full bg-success-green"></span>
+              <span>CANDIDATE (C4053)</span>
+            </div>
+            <div class="text-outline">→</div>
+            <div class="flex items-center space-x-1.5 text-warning-amber">
+              <span class="w-2 h-2 rounded-full bg-warning-amber"></span>
+              <span>RECONSTRUCTION (READY)</span>
+            </div>
+            <div class="text-outline">→</div>
+            <div class="flex items-center space-x-1.5 text-outline">
+              <span class="w-2 h-2 rounded-full bg-outline"></span>
+              <span>AIS (STANDBY)</span>
+            </div>
+            <div class="text-outline">→</div>
+            <div class="flex items-center space-x-1.5 text-outline">
+              <span class="w-2 h-2 rounded-full bg-outline"></span>
+              <span>REVIEW (READY)</span>
             </div>
           </div>
         </div>
 
-        <!-- BOTTOM WORKFLOW PROGRESSION TIMELINE -->
-        <div class="varuna-workflow-bar">
-          <!-- 01 OBSERVED -->
-          <div class="varuna-workflow-stage" onclick="window.switchDomain('OBSERVE')">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <div class="flex items-center space-x-1">
-              <span class="stage-name text-slate-200">01 OBSERVED</span>
-              <span class="text-[9px] px-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">REAL</span>
-            </div>
+        <!-- CASE STATUS METRICS GRID -->
+        <div class="grid grid-cols-4 gap-4 mb-6 font-data-mono text-xs">
+          <div class="bg-surface-container-low border border-outline-variant rounded p-3">
+            <div class="text-outline text-[10px]">OBSERVATION STATUS</div>
+            <div class="text-success-green font-bold mt-1" id="ov-obs-status-val">VALIDATED (S1B)</div>
           </div>
-
-          <span class="varuna-workflow-divider">→</span>
-
-          <!-- 02 ANALYSED -->
-          <div class="varuna-workflow-stage" onclick="window.switchDomain('ANALYZE')">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <div class="flex items-center space-x-1">
-              <span class="stage-name text-slate-200">02 ANALYSED</span>
-              <span class="text-[9px] px-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">REAL</span>
-            </div>
+          <div class="bg-surface-container-low border border-outline-variant rounded p-3">
+            <div class="text-outline text-[10px]">DETECTION RESULT</div>
+            <div class="text-primary font-bold mt-1" id="ov-det-result-val">45 CANDIDATE GROUPS</div>
           </div>
-
-          <span class="varuna-workflow-divider">→</span>
-
-          <!-- 03 QUALIFIED -->
-          <div class="varuna-workflow-stage" onclick="window.switchDomain('ANALYZE')">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <div class="flex items-center space-x-1">
-              <span class="stage-name text-slate-200">03 QUALIFIED</span>
-              <span class="text-[9px] px-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">REAL</span>
-            </div>
+          <div class="bg-surface-container-low border border-outline-variant rounded p-3">
+            <div class="text-outline text-[10px]">SELECTED CANDIDATE</div>
+            <div class="text-map-creative-accent font-bold mt-1" id="ov-cand-val">C4053 (ML: 0.5818)</div>
           </div>
-
-          <span class="varuna-workflow-divider">→</span>
-
-          <!-- 04 FORECAST -->
-          <div class="varuna-workflow-stage" onclick="window.switchDomain('FORECAST')">
-            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-            <div class="flex items-center space-x-1">
-              <span class="stage-name text-slate-200">04 FORECAST</span>
-              <span class="text-[9px] px-1 rounded bg-amber-950 text-amber-400 border border-amber-800 font-bold">DEMO</span>
-            </div>
-          </div>
-
-          <span class="varuna-workflow-divider">→</span>
-
-          <!-- 05 RESPONSE -->
-          <div class="varuna-workflow-stage active" onclick="window.switchDomain('OVERVIEW')">
-            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-            <div class="flex items-center space-x-1">
-              <span class="stage-name">05 RESPONSE</span>
-              <span class="text-[9px] px-1 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold">ACTIVE</span>
-            </div>
-          </div>
-
-          <span class="varuna-workflow-divider">→</span>
-
-          <!-- 06 INVESTIGATION -->
-          <div class="varuna-workflow-stage" onclick="window.switchDomain('VESSEL')">
-            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-            <div class="flex items-center space-x-1">
-              <span class="stage-name text-slate-300">06 INVESTIGATION</span>
-              <span class="text-[9px] px-1 rounded bg-amber-950 text-amber-400 border border-amber-800 font-bold">DEMO</span>
-            </div>
-          </div>
-
-          <span class="varuna-workflow-divider">→</span>
-
-          <!-- 07 REVIEW -->
-          <div class="varuna-workflow-stage" onclick="window.switchDomain('EVIDENCE')">
-            <span class="w-2 h-2 rounded-full bg-slate-500"></span>
-            <div class="flex items-center space-x-1">
-              <span class="stage-name text-slate-300">07 REVIEW</span>
-              <span class="text-[9px] px-1 rounded bg-slate-800 text-slate-400 border border-slate-700 font-bold">READY</span>
-            </div>
+          <div class="bg-surface-container-low border border-outline-variant rounded p-3">
+            <div class="text-outline text-[10px]">RESPONSE & HINDCAST</div>
+            <div class="text-warning-amber font-bold mt-1" id="ov-hc-val">~24.17 km @ 24h</div>
           </div>
         </div>
       </section>
@@ -1112,6 +849,137 @@
       </div>
     </div>
   </div>
+
+  <!-- PROVENANCE & TRUTHFULNESS DRAWER (Opened via Topbar Help Icon) -->
+  <aside id="sn-provenance-drawer" class="fixed right-0 top-[48px] bottom-[28px] w-[380px] bg-surface-container-low border-l border-outline-variant z-50 shadow-2xl flex flex-col hidden font-data-mono text-xs">
+    <div class="p-4 bg-surface-container border-b border-outline-variant flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+        <h2 class="text-sm font-bold text-on-surface tracking-wide uppercase">EXECUTION PROVENANCE</h2>
+      </div>
+      <button class="w-7 h-7 rounded hover:bg-surface-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors cursor-pointer" onclick="window.toggleProvenanceDrawer()">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+    
+    <div class="p-4 flex-1 overflow-y-auto space-y-4">
+      <div class="text-[11px] text-on-surface-variant leading-relaxed">
+        VARUNA enforces strict scientific truthfulness. Execution modes and data provenance are validated and never fabricated.
+      </div>
+      
+      <!-- Stage Truthfulness Contract Cards -->
+      <div class="space-y-2.5">
+        <div class="p-3 bg-surface-container rounded border border-outline-variant">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-[10px] text-outline uppercase font-bold">SAR PROCESSING</span>
+            <span class="px-1.5 py-0.5 rounded bg-surface-variant text-primary font-bold text-[10px]" id="truth-stage-sar">REAL</span>
+          </div>
+          <div class="text-[11px] text-on-surface">Sentinel-1 Radiometric dB</div>
+        </div>
+
+        <div class="p-3 bg-surface-container rounded border border-outline-variant">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-[10px] text-outline uppercase font-bold">TRAJECTORY</span>
+            <span class="px-1.5 py-0.5 rounded bg-warning-amber/15 text-warning-amber font-bold text-[10px]" id="truth-stage-traj">SYNTHETIC_DEMO</span>
+          </div>
+          <div class="text-[11px] text-on-surface">Lagrangian Drift Model (OpenDrift)</div>
+        </div>
+
+        <div class="p-3 bg-surface-container rounded border border-outline-variant">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-[10px] text-outline uppercase font-bold">RESPONSE ENGINE</span>
+            <span class="px-1.5 py-0.5 rounded bg-surface-variant text-primary font-bold text-[10px]" id="truth-stage-engine">REAL</span>
+          </div>
+          <div class="text-[11px] text-on-surface">Priority Scoring Matrix</div>
+        </div>
+
+        <div class="p-3 bg-surface-container rounded border border-outline-variant">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-[10px] text-outline uppercase font-bold">RESPONSE INPUTS</span>
+            <span class="px-1.5 py-0.5 rounded bg-surface-variant text-on-surface-variant font-bold text-[10px]" id="truth-stage-inputs">REAL</span>
+          </div>
+          <div class="text-[11px] text-on-surface">Atmospheric / Hydro Forcing</div>
+        </div>
+
+        <div class="p-3 bg-surface-container rounded border border-outline-variant">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-[10px] text-outline uppercase font-bold">RECEPTOR DATA</span>
+            <span class="px-1.5 py-0.5 rounded bg-surface-variant text-primary font-bold text-[10px]" id="truth-stage-receptors">REAL</span>
+          </div>
+          <div class="text-[11px] text-on-surface">Marine Protected Areas / Assets</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="p-3 bg-surface-container border-t border-outline-variant text-[10px] text-outline text-center">
+      ISO-14001 / IMO Aligned Provenance Standard
+    </div>
+  </aside>
+
+  <!-- VARUNA INTELLIGENCE & DECISION SUPPORT DRAWER -->
+  <aside id="sn-intelligence-drawer" class="fixed right-0 top-[48px] bottom-[28px] w-[420px] max-w-[95vw] bg-surface-container-low border-l border-outline-variant z-50 shadow-2xl flex flex-col hidden font-data-mono text-xs">
+    <div class="p-3.5 bg-surface-container border-b border-outline-variant flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <span class="material-symbols-outlined text-primary text-[20px]">psychology</span>
+        <div>
+          <h2 class="text-xs font-bold text-on-surface tracking-wide uppercase">VARUNA INTELLIGENCE</h2>
+          <div class="text-[10px] text-on-surface-variant flex items-center space-x-1.5 mt-0.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-warning-amber" id="ai-drawer-status-dot"></span>
+            <span id="ai-drawer-mode-text">DETERMINISTIC_FALLBACK</span>
+            <span>•</span>
+            <span id="ai-drawer-strands-text">Strands Agents</span>
+          </div>
+        </div>
+      </div>
+      <button class="w-7 h-7 rounded hover:bg-surface-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors cursor-pointer" onclick="window.toggleIntelligenceDrawer()">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+    
+    <!-- AI Status & Provider Banner -->
+    <div class="p-3 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between text-[11px]">
+      <div>
+        <div class="text-[10px] text-outline uppercase font-semibold">MODEL / ORCHESTRATION</div>
+        <div class="text-on-surface font-semibold text-[11px]" id="ai-drawer-model-id">None (Deterministic Rules)</div>
+      </div>
+      <div class="text-right">
+        <div class="text-[10px] text-outline uppercase font-semibold">PROVIDER</div>
+        <div class="text-primary font-semibold text-[11px]" id="ai-drawer-provider">AMAZON_BEDROCK / FALLBACK</div>
+      </div>
+    </div>
+
+    <!-- Inquiry Conversation History Container -->
+    <div class="p-3.5 flex-1 overflow-y-auto space-y-3 bg-surface" id="ai-qa-stream">
+      <div class="p-3 bg-surface-container rounded border border-outline-variant text-[11px] text-on-surface-variant leading-relaxed">
+        <div class="flex items-center space-x-1.5 text-primary font-bold text-xs mb-1">
+          <span class="material-symbols-outlined text-[16px]">info</span>
+          <span>OPERATIONAL DECISION SUPPORT</span>
+        </div>
+        Ask grounded operational questions about incident case <strong class="text-on-surface" id="ai-drawer-case-id">R001_WAKASHIO</strong>. Responses are strictly anchored to verified pipeline evidence.
+      </div>
+    </div>
+
+    <!-- Suggested Quick Inquiries -->
+    <div class="px-3.5 py-2 bg-surface-container-lowest border-t border-outline-variant space-y-1.5">
+      <div class="text-[10px] text-outline uppercase font-semibold">QUICK OPERATIONAL QUESTIONS</div>
+      <div class="flex flex-wrap gap-1.5">
+        <button class="px-2 py-1 bg-surface-container hover:bg-surface-variant border border-outline-variant rounded text-[10px] text-on-surface transition-colors cursor-pointer" onclick="window.askQuickQuestion('What requires attention first?')">What requires attention first?</button>
+        <button class="px-2 py-1 bg-surface-container hover:bg-surface-variant border border-outline-variant rounded text-[10px] text-on-surface transition-colors cursor-pointer" onclick="window.askQuickQuestion('What happened?')">What happened?</button>
+        <button class="px-2 py-1 bg-surface-container hover:bg-surface-variant border border-outline-variant rounded text-[10px] text-on-surface transition-colors cursor-pointer" onclick="window.askQuickQuestion('Which vessel should we investigate?')">Which vessel should we investigate?</button>
+        <button class="px-2 py-1 bg-surface-container hover:bg-surface-variant border border-outline-variant rounded text-[10px] text-on-surface transition-colors cursor-pointer" onclick="window.askQuickQuestion('How reliable is this analysis?')">How reliable is this analysis?</button>
+      </div>
+    </div>
+
+    <!-- Query Input Bar -->
+    <div class="p-3 bg-surface-container border-t border-outline-variant">
+      <form class="flex space-x-2" onsubmit="window.submitIntelligenceQuestion(event)">
+        <input type="text" id="ai-question-input" class="flex-1 bg-surface-container-high border border-outline-variant rounded px-2.5 py-1.5 text-on-surface text-xs focus:outline-none focus:border-primary font-body-sm" placeholder="Ask VARUNA Intelligence..." autocomplete="off"/>
+        <button type="submit" id="ai-submit-btn" class="px-3 bg-primary hover:bg-primary-container text-on-primary rounded font-bold uppercase text-xs flex items-center space-x-1 cursor-pointer transition-colors">
+          <span class="material-symbols-outlined text-[16px]">send</span>
+        </button>
+      </form>
+    </div>
+  </aside>
 
   <!-- Application JS Engine -->
   <script src="app.js"></script>

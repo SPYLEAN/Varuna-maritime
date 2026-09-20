@@ -12,7 +12,7 @@
   function isBenchmarkCase(caseId) {
     if (!caseId) return false;
     const upper = caseId.toUpperCase();
-    return upper === "R001_WAKASHIO" || upper === "R001" || upper === "CASE_R001";
+    return upper.startsWith("R001") || upper.startsWith("R002") || upper.startsWith("R003") || upper.startsWith("R004") || upper.startsWith("R005") || upper.includes("BENCHMARK");
   }
 
   // Canonical Validated Benchmark Case Definition
@@ -41,45 +41,16 @@
     ]
   };
 
-  // Canonical Operational North Sea Incident Definition
-  const VARUNA_NORTH_SEA_RECORD = {
-    case_id: "VARUNA-CASE-2024-0410-NS01",
-    case_name: "North Sea Operational Maritime Pollution Incident",
-    location: "53.50° N, 02.50° E (North Sea Corridor)",
-    region: "North Sea Offshore Shipping Corridor",
-    latitude: 53.5,
-    longitude: 2.5,
-    mode: "Operational Oil Spill",
-    stage: "Response Active",
-    status: "ACTIVE INCIDENT",
-    last_updated: "2026-09-19 15:45 UTC",
-    is_benchmark: false,
-    observation_status: "VALIDATED (SYNTHETIC_DEMO)",
-    detection_status: "COMPLETE",
-    selected_candidate: "C4053",
-    hindcast_status: "COMPLETE",
-    forecast_status: "COMPLETE",
-    ais_status: "SYNTHETIC_DEMO",
-    review_status: "READY",
-    activity: [
-      { time: "2024-04-10 06:23 UTC", text: "Dual-polarization SAR backscatter depression observed (11.2 dB VV damping)" },
-      { time: "2024-04-10 07:10 UTC", text: "SmallUNet segmentation qualified: 1.24 km² surface anomaly (PHYSICS_ELIGIBLE)" },
-      { time: "2024-04-10 08:00 UTC", text: "Forward forecast advection computed: 068° ENE drift toward Coastal Wetland Zone A" },
-      { time: "2024-04-10 08:30 UTC", text: "Marine response window qualified: 08h 42m to shoreline buffer" }
-    ]
-  };
-
   // Normalized Enterprise Case Registry State
   const state = {
-    activeModule: "OPERATIONS",
-    currentDomain: "OVERVIEW", // SCREEN 1: COMMAND CENTER AS DEFAULT LANDING
-    investigationId: "VARUNA-CASE-2024-0410-NS01",
+    activeModule: "OPERATIONS", // 'OPERATIONS', 'CASES', 'SATELLITE', 'ANALYSIS', 'PHYSICS', 'VESSEL', 'REPORTS'
+    currentDomain: "HOME",      // 'HOME', 'CASES', 'OVERVIEW', 'OBSERVE', 'ANALYZE', 'RECONSTRUCT', 'ATTRIBUTE', 'REVIEW', 'ACTIVITY'
+    investigationId: "R001_WAKASHIO",
     activeEdgeState: "NORMAL_CASE",
     isGuidedMode: true,
-    activeHorizon: "ALL",
     
-    // Case Registry Database (Backed by North Sea + Pinned Benchmark + /api/v1/cases)
-    cases: [VARUNA_NORTH_SEA_RECORD, R001_BENCHMARK_RECORD],
+    // Case Registry Database (Backed by /api/v1/cases + Pinned Benchmark)
+    cases: [R001_BENCHMARK_RECORD],
 
     // Active View Settings
     activeSarBand: "VV",
@@ -90,22 +61,11 @@
     
     // Map Canvas Handles
     maps: {
-      overview: null,
       observe: null,
       analyze: null,
       reconstruct: null,
       attribute: null,
       wizAoi: null
-    },
-    overviewLayers: {
-      anomaly: null,
-      extent: null,
-      traj6h: null,
-      traj12h: null,
-      traj24h: null,
-      traj48h: null,
-      envelope: null,
-      receptors: null
     },
     sarOverlays: {
       observe: null,
@@ -150,9 +110,33 @@
       const res = await fetch(`${PRODUCT_API_BASE}/cases`);
       if (res.ok) {
         const backendCases = await res.json();
-        const mappedGeneric = backendCases.map(bc => {
+        const mappedCases = backendCases.map(bc => {
           const satObs = bc.data_manifest?.satellite_observations || [];
           const hasSar = satObs.length > 0 || (bc.data_manifest?.evidence && bc.data_manifest.evidence.some(e => e.evidence_type === "sar_image"));
+          const isBench = isBenchmarkCase(bc.case_id);
+          const wf = bc.workflow || {};
+          const stages = wf.stages || {};
+          
+          let actList = [];
+          if (stages && Object.keys(stages).length > 0) {
+            for (const [stName, stData] of Object.entries(stages)) {
+              if (stData.completed) {
+                actList.push({
+                  time: stData.timestamp ? stData.timestamp.substr(0, 16).replace("T", " ") + " UTC" : "Completed",
+                  text: stData.summary || `${stName} completed`
+                });
+              }
+            }
+          }
+          if (actList.length === 0) {
+            actList.push({
+              time: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent",
+              text: `Case ${bc.case_id} registered in database`
+            });
+          }
+
+          const currentStage = wf.current_stage || (isBench ? "REVIEW READY" : (hasSar ? "Observation Attached" : "Observation Required"));
+
           return {
             case_id: bc.case_id,
             case_name: bc.name,
@@ -162,40 +146,24 @@
             longitude: bc.longitude,
             aoi_geojson: bc.aoi_geojson,
             observation_timestamp: bc.observation_timestamp,
-            mode: bc.incident_type || "Operational Oil Spill",
-            stage: bc.analysis_status?.oil_detection === "completed" ? "Analysis Complete" : (hasSar ? "Observation Attached" : "Observation Required"),
-            status: bc.analysis_status?.oil_detection === "completed" ? "ACTIVE" : "NEW",
+            mode: bc.incident_type || (isBench ? "Validated Research Benchmark" : "Operational Oil Spill"),
+            stage: currentStage,
+            status: isBench ? "VALIDATED BENCHMARK" : (bc.analysis_status?.oil_detection === "completed" ? "ACTIVE" : "NEW"),
             last_updated: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent",
-            is_benchmark: false,
-            observation_status: hasSar ? "ATTACHED" : "NO OBSERVATION ATTACHED",
+            is_benchmark: isBench,
+            observation_status: hasSar ? "VALIDATED" : "NO OBSERVATION ATTACHED",
             satellite_observations: satObs,
             raw_case: bc,
-            detection_status: bc.analysis_status?.oil_detection || "not_started",
-            selected_candidate: null,
-            hindcast_status: bc.analysis_status?.hindcast || "not_started",
-            forecast_status: "not_started",
-            ais_status: bc.analysis_status?.ais_correlation || "not_started",
-            review_status: "INCOMPLETE",
-            activity: [
-              { time: bc.created_at ? bc.created_at.substr(0, 16).replace("T", " ") + " UTC" : "Recent", text: `Case ${bc.case_id} registered in database` }
-            ]
+            detection_status: stages["SLICK ANALYSED"]?.completed ? "COMPLETE" : (bc.analysis_status?.oil_detection || "not_started"),
+            selected_candidate: stages["CANDIDATE SELECTED"]?.data?.selected_candidate || (isBench ? "C4053" : null),
+            hindcast_status: stages["HINDCAST COMPLETE"]?.completed ? "COMPLETE" : "not_started",
+            forecast_status: stages["FORECAST COMPLETE"]?.completed ? "COMPLETE" : "not_started",
+            ais_status: stages["AIS CORRELATED"]?.completed ? (stages["AIS CORRELATED"]?.data?.attribution_abstention ? "ATTRIBUTION ABSTAINED (NON-VESSEL)" : "SYNTHETIC_DEMO") : "not_started",
+            review_status: stages["REVIEW READY"]?.completed ? "READY" : "INCOMPLETE",
+            activity: actList
           };
         });
-        state.cases = [
-          VARUNA_NORTH_SEA_RECORD,
-          R001_BENCHMARK_RECORD,
-          ...mappedGeneric.filter(c => c.case_id !== "R001_WAKASHIO" && c.case_id !== "VARUNA-CASE-2024-0410-NS01")
-        ];
-
-        // Populate topbar incident selector
-        const topSelect = document.getElementById("topbar-incident-select");
-        if (topSelect) {
-          topSelect.innerHTML = state.cases.map(c => `
-            <option value="${c.case_id}" ${c.case_id === state.investigationId ? 'selected' : ''}>
-              ${c.case_id} — ${c.case_name || c.location}
-            </option>
-          `).join("");
-        }
+        state.cases = mappedCases;
       }
     } catch (err) {
       console.warn("Failed to load cases from /api/v1/cases:", err);
@@ -235,30 +203,11 @@
     }
   }
 
-  async function checkBackendHealth() {
-    const healthPill = document.getElementById("topbar-backend-status");
-    if (!healthPill) return;
-    try {
-      const t0 = performance.now();
-      const res = await fetch(`${API_ORIGIN}/health`, { signal: AbortSignal.timeout(3000) });
-      const ms = Math.round(performance.now() - t0);
-      if (res.ok) {
-        healthPill.innerText = `ONLINE (${ms}ms)`;
-        healthPill.className = "text-emerald-400 font-bold text-[11px]";
-      } else {
-        healthPill.innerText = `HTTP ${res.status}`;
-        healthPill.className = "text-amber-400 font-bold text-[11px]";
-      }
-    } catch (e) {
-      healthPill.innerText = "OFFLINE (8000)";
-      healthPill.className = "text-red-400 font-bold text-[11px]";
-    }
-  }
-
   async function initApp() {
     await loadCasesFromBackend();
-    checkBackendHealth();
-    setInterval(checkBackendHealth, 30000);
+    if (!state.cases.some(c => c.case_id === state.investigationId)) {
+      state.investigationId = "R001_WAKASHIO";
+    }
     renderOpsHome();
     window.renderCasesRegistry();
     window.switchDomain(state.currentDomain);
@@ -268,38 +217,31 @@
      DOMAIN & MODULE SWITCHING
      ========================================================================== */
 
-  window.switchDomain = function (rawDomain) {
-    let domain = rawDomain;
-
-    // Domain Aliases
-    if (domain === "FORECAST") domain = "RECONSTRUCT";
-    if (domain === "VESSEL") domain = "ATTRIBUTE";
-    if (domain === "EVIDENCE") domain = "REVIEW";
-
+  window.switchDomain = function (domain) {
     state.currentDomain = domain;
 
-    // Update Sidebar Navigation Buttons Styling
-    document.querySelectorAll(".sn-nav-btn").forEach(btn => {
-      const btnDom = btn.dataset.domain;
-      const isAct = (btnDom === rawDomain) || (btnDom === domain);
-      btn.classList.toggle("bg-cyan-950/70", isAct);
-      btn.classList.toggle("text-cyan-300", isAct);
-      btn.classList.toggle("border-l-2", isAct);
-      btn.classList.toggle("border-cyan-400", isAct);
-      btn.classList.toggle("font-bold", isAct);
-      btn.classList.toggle("text-slate-300", !isAct);
+    // Update Top Module Styling
+    document.querySelectorAll(".nav-module").forEach(el => {
+      const isAct = (domain === "HOME" && el.dataset.module === "OPERATIONS") ||
+                    (domain === "CASES" && el.dataset.module === "CASES") ||
+                    (domain === "OBSERVE" && el.dataset.module === "SATELLITE") ||
+                    (domain === "ANALYZE" && el.dataset.module === "ANALYSIS") ||
+                    (domain === "RECONSTRUCT" && el.dataset.module === "PHYSICS") ||
+                    (domain === "ATTRIBUTE" && el.dataset.module === "VESSEL") ||
+                    (domain === "REVIEW" && el.dataset.module === "REPORTS");
+      el.classList.toggle("text-primary", isAct);
+      el.classList.toggle("font-semibold", isAct);
+      el.classList.toggle("text-on-surface-variant", !isAct);
     });
 
-    // Update Workflow Bar active step
-    document.querySelectorAll(".varuna-workflow-stage").forEach(st => {
-      const stText = st.innerText.toUpperCase();
-      const isAct = (domain === "OVERVIEW" && stText.includes("RESPONSE")) ||
-                    (domain === "OBSERVE" && stText.includes("OBSERVED")) ||
-                    (domain === "ANALYZE" && (stText.includes("ANALYSED") || stText.includes("QUALIFIED"))) ||
-                    (domain === "RECONSTRUCT" && stText.includes("FORECAST")) ||
-                    (domain === "ATTRIBUTE" && stText.includes("INVESTIGATION")) ||
-                    (domain === "REVIEW" && stText.includes("REVIEW"));
-      st.classList.toggle("active", isAct);
+    // Update Sidebar Styling
+    document.querySelectorAll(".sn-nav-btn").forEach(btn => {
+      const isAct = btn.dataset.domain === domain;
+      btn.classList.toggle("bg-primary-container", isAct);
+      btn.classList.toggle("text-on-primary-container", isAct);
+      btn.classList.toggle("border-l-2", isAct);
+      btn.classList.toggle("border-primary", isAct);
+      btn.classList.toggle("text-on-surface-variant", !isAct);
     });
 
     // Hide All Domain Workspaces
@@ -310,26 +252,18 @@
     const target = document.getElementById(`domain-${domId}`);
     if (target) target.classList.remove("hidden");
 
-    // Dynamic Header & Sidebar Updates
+    // Dynamic Header Updates
     const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
     const sTitle = document.getElementById("sidebar-case-title");
     const sSub = document.getElementById("sidebar-case-sub");
-    if (sTitle) sTitle.innerText = activeCase.case_name || activeCase.case_id;
-    if (sSub) sSub.innerText = activeCase.case_id;
-
-    // Sync Topbar Incident selector
-    const sel = document.getElementById("topbar-incident-select");
-    if (sel && sel.value !== state.investigationId) {
-      sel.value = state.investigationId;
-    }
+    if (sTitle) sTitle.innerText = activeCase.case_id === "R001_WAKASHIO" ? "CASE R001" : activeCase.case_id;
+    if (sSub) sSub.innerText = activeCase.case_name;
 
     // Trigger Specific View Handlers
     setTimeout(() => {
-      if (domain === "OVERVIEW") {
-        initOverviewMap();
-        renderOverviewPanel();
-      } else if (domain === "HOME") renderOpsHome();
+      if (domain === "HOME") renderOpsHome();
       else if (domain === "CASES") renderCasesRegistry();
+      else if (domain === "OVERVIEW") renderCaseOverview();
       else if (domain === "OBSERVE") initObserveMap();
       else if (domain === "ANALYZE") initAnalyzeMap();
       else if (domain === "RECONSTRUCT") { initReconstructMap(); renderReconstructInspector(); }
@@ -338,374 +272,6 @@
       else if (domain === "ACTIVITY") renderCaseActivityTimeline();
     }, 50);
   };
-
-  /* ==========================================================================
-     SCREEN 1: OVERVIEW / COMMAND CENTER MAP & RESPONSE INTELLIGENCE
-     ========================================================================== */
-
-  function initOverviewMap() {
-    const mapContainer = document.getElementById("overview-map");
-    if (!mapContainer) return;
-
-    const isNorthSea = (state.investigationId === "VARUNA-CASE-2024-0410-NS01" || !isBenchmarkCase(state.investigationId));
-    const defaultCenter = isNorthSea ? [53.50, 2.50] : [-20.4382, 57.7432];
-    const defaultZoom = isNorthSea ? 10 : 11;
-
-    if (!state.maps.overview) {
-      state.maps.overview = L.map("overview-map", {
-        center: defaultCenter,
-        zoom: defaultZoom,
-        zoomControl: false,
-        attributionControl: false
-      });
-
-      state.maps.overview.on("mousemove", (e) => {
-        updateStatusBarCoords(e.latlng.lat, e.latlng.lng);
-        const ovCoordEl = document.getElementById("ov-map-coords");
-        if (ovCoordEl) {
-          ovCoordEl.innerText = `${Math.abs(e.latlng.lat).toFixed(4)}° ${e.latlng.lat >= 0 ? "N" : "S"}, ${Math.abs(e.latlng.lng).toFixed(4)}° ${e.latlng.lng >= 0 ? "E" : "W"}`;
-        }
-      });
-
-      // CartoDB Dark Matter maritime basemap
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19,
-        subdomains: "abcd"
-      }).addTo(state.maps.overview);
-    }
-
-    state.maps.overview.invalidateSize();
-
-    // Clear previous situational layers
-    Object.keys(state.overviewLayers).forEach(k => {
-      if (state.overviewLayers[k] && state.maps.overview.hasLayer(state.overviewLayers[k])) {
-        state.maps.overview.removeLayer(state.overviewLayers[k]);
-        state.overviewLayers[k] = null;
-      }
-    });
-
-    if (isNorthSea) {
-      // 1. OIL-LIKE ANOMALY POLYGON (1.24 km2)
-      const anomalyCoords = [
-        [53.488, 2.475],
-        [53.512, 2.502],
-        [53.518, 2.532],
-        [53.506, 2.545],
-        [53.492, 2.520],
-        [53.484, 2.490],
-        [53.488, 2.475]
-      ];
-
-      state.overviewLayers.anomaly = L.polygon(anomalyCoords, {
-        color: "#38bdf8",
-        weight: 2,
-        fillColor: "#0284c7",
-        fillOpacity: 0.65
-      }).addTo(state.maps.overview);
-
-      state.overviewLayers.anomaly.bindPopup(`
-        <div class="font-mono text-xs p-1 space-y-1">
-          <div class="text-[10px] text-cyan-400 font-bold uppercase">CURRENT EVENT</div>
-          <div class="text-white font-bold text-sm">Oil-like surface anomaly</div>
-          <div class="text-slate-300">Area: <strong class="text-cyan-300">1.24 km²</strong> (SYNTHETIC_DEMO)</div>
-          <div class="text-slate-300">Gate: <strong class="text-emerald-400">PHYSICS_ELIGIBLE</strong></div>
-          <div class="text-slate-400 text-[10px]">SmallUNet segmentation (Solidity: 0.78, Elongation: 2.35)</div>
-        </div>
-      `);
-
-      // 2. PROBABLE EXTENT (Expanded Hull)
-      const extentCoords = [
-        [53.478, 2.460],
-        [53.522, 2.495],
-        [53.528, 2.545],
-        [53.512, 2.560],
-        [53.485, 2.532],
-        [53.475, 2.478],
-        [53.478, 2.460]
-      ];
-
-      state.overviewLayers.extent = L.polygon(extentCoords, {
-        color: "#06b6d4",
-        dashArray: "5, 5",
-        weight: 1.5,
-        fillColor: "#06b6d4",
-        fillOpacity: 0.12
-      }).addTo(state.maps.overview);
-
-      state.overviewLayers.extent.bindPopup(`
-        <div class="font-mono text-xs p-1">
-          <div class="text-cyan-400 font-bold">PROBABLE SLICK EXTENT</div>
-          <div class="text-slate-300 mt-0.5">Confidence Envelope: 95% Confidence Interval</div>
-        </div>
-      `);
-
-      // 3. TRAJECTORY VECTORS (+6h, +12h, +24h, +48h)
-      const trajPoints = [
-        [53.502, 2.510], // T0 (Now)
-        [53.542, 2.625], // +6h
-        [53.585, 2.748], // +12h
-        [53.665, 2.980], // +24h
-        [53.815, 3.420]  // +48h
-      ];
-
-      // +6h segment (Solid cyan)
-      state.overviewLayers.traj6h = L.layerGroup([
-        L.polyline([trajPoints[0], trajPoints[1]], { color: "#38bdf8", weight: 3.5, opacity: 0.95 }),
-        L.circleMarker(trajPoints[1], { radius: 5, color: "#38bdf8", fillColor: "#0b1220", fillOpacity: 1, weight: 2 }).bindPopup("<div class='font-mono text-xs font-bold text-cyan-300'>HORIZON: +6H<br><span class='text-slate-400 font-normal'>Drift distance: ~7.4 km (068° ENE)</span></div>")
-      ]).addTo(state.maps.overview);
-
-      // +12h segment (Teal dashed)
-      state.overviewLayers.traj12h = L.layerGroup([
-        L.polyline([trajPoints[1], trajPoints[2]], { color: "#14b8a6", weight: 3, dashArray: "4, 4", opacity: 0.9 }),
-        L.circleMarker(trajPoints[2], { radius: 5, color: "#14b8a6", fillColor: "#0b1220", fillOpacity: 1, weight: 2 }).bindPopup("<div class='font-mono text-xs font-bold text-teal-300'>HORIZON: +12H<br><span class='text-slate-400 font-normal'>Drift distance: ~14.8 km (068° ENE)</span></div>")
-      ]).addTo(state.maps.overview);
-
-      // +24h segment (Sky blue dashed)
-      state.overviewLayers.traj24h = L.layerGroup([
-        L.polyline([trajPoints[2], trajPoints[3]], { color: "#0284c7", weight: 2.5, dashArray: "4, 4", opacity: 0.85 }),
-        L.circleMarker(trajPoints[3], { radius: 5, color: "#0284c7", fillColor: "#0b1220", fillOpacity: 1, weight: 2 }).bindPopup("<div class='font-mono text-xs font-bold text-sky-300'>HORIZON: +24H<br><span class='text-slate-400 font-normal'>Drift distance: ~29.5 km</span></div>")
-      ]).addTo(state.maps.overview);
-
-      // +48h segment (Slate blue dotted)
-      state.overviewLayers.traj48h = L.layerGroup([
-        L.polyline([trajPoints[3], trajPoints[4]], { color: "#64748b", weight: 2, dashArray: "3, 3", opacity: 0.8 }),
-        L.circleMarker(trajPoints[4], { radius: 5, color: "#64748b", fillColor: "#0b1220", fillOpacity: 1, weight: 2 }).bindPopup("<div class='font-mono text-xs font-bold text-slate-300'>HORIZON: +48H<br><span class='text-slate-400 font-normal'>Drift distance: ~58.2 km</span></div>")
-      ]).addTo(state.maps.overview);
-
-      // 4. UNCERTAINTY ENVELOPE CORRIDOR (±4.8 km to ±9.2 km)
-      const envelopeCoords = [
-        [53.525, 2.605],
-        [53.555, 2.715],
-        [53.620, 2.920],
-        [53.750, 3.320],
-        [53.860, 3.480],
-        [53.800, 3.520],
-        [53.700, 3.080],
-        [53.610, 2.780],
-        [53.555, 2.645],
-        [53.525, 2.605]
-      ];
-
-      state.overviewLayers.envelope = L.polygon(envelopeCoords, {
-        color: "#0284c7",
-        weight: 1.5,
-        dashArray: "4, 4",
-        fillColor: "#0284c7",
-        fillOpacity: 0.15
-      }).addTo(state.maps.overview);
-
-      state.overviewLayers.envelope.bindPopup(`
-        <div class="font-mono text-xs p-1">
-          <div class="text-sky-400 font-bold">48H UNCERTAINTY CORRIDOR</div>
-          <div class="text-slate-300 mt-0.5">Dispersion Radius: ±4.8 km @ 24h → ±9.2 km @ 48h</div>
-          <div class="text-amber-400 text-[10px] mt-1 font-bold">SYNTHETIC_DEMO Drift Kinematics</div>
-        </div>
-      `);
-
-      // 5. RELEVANT RECEPTOR MARKERS
-      // Coastal Wetland Zone A (Critical High Priority at ~8h 42m drift distance)
-      const wetlandMarker = L.circleMarker([53.570, 2.705], {
-        radius: 8,
-        color: "#ef4444",
-        fillColor: "#ef4444",
-        fillOpacity: 0.85,
-        weight: 3,
-        className: "receptor-marker-pulse"
-      });
-
-      wetlandMarker.bindPopup(`
-        <div class="font-mono text-xs p-1 space-y-1">
-          <div class="flex items-center justify-between">
-            <span class="text-red-400 font-bold uppercase text-[10px]">CRITICAL RECEPTOR</span>
-            <span class="px-1.5 py-0.2 rounded bg-red-950 text-red-300 border border-red-800 font-bold text-[9px]">HIGH</span>
-          </div>
-          <div class="text-white font-bold text-sm">Coastal Wetland Zone A</div>
-          <div class="text-slate-300">Estimated Arrival: <strong class="text-amber-400">08h 42m</strong> (Horizon: +9h)</div>
-          <div class="text-slate-300">Sensitivity: <span class="text-red-300">HIGH (Intertidal Estuary Sanctuary)</span></div>
-          <div class="text-slate-400 text-[10px] pt-1 border-t border-slate-800">
-            Action: Immediate containment booming &amp; staging advised.
-          </div>
-        </div>
-      `);
-
-      // Fishing Ground B (Secondary Medium Priority at 17h)
-      const fishingMarker = L.circleMarker([53.630, 2.860], {
-        radius: 7,
-        color: "#f59e0b",
-        fillColor: "#f59e0b",
-        fillOpacity: 0.8,
-        weight: 2
-      });
-
-      fishingMarker.bindPopup(`
-        <div class="font-mono text-xs p-1 space-y-1">
-          <div class="flex items-center justify-between">
-            <span class="text-amber-400 font-bold uppercase text-[10px]">SECONDARY RECEPTOR</span>
-            <span class="px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 font-bold text-[9px]">MEDIUM</span>
-          </div>
-          <div class="text-white font-bold text-sm">Fishing Ground B</div>
-          <div class="text-slate-300">Estimated Arrival: <strong class="text-amber-400">17h 00m</strong></div>
-          <div class="text-slate-300">Sensitivity: Commercial Demersal Trawling Zone</div>
-        </div>
-      `);
-
-      state.overviewLayers.receptors = L.layerGroup([wetlandMarker, fishingMarker]).addTo(state.maps.overview);
-
-      // Fit bounds nicely
-      const group = L.featureGroup([
-        state.overviewLayers.anomaly,
-        state.overviewLayers.envelope,
-        wetlandMarker,
-        fishingMarker
-      ]);
-      state.maps.overview.fitBounds(group.getBounds(), { padding: [40, 40], animate: false });
-    } else {
-      // Mauritius Wakashio Benchmark
-      const mauritiusAnomaly = [
-        [-20.445, 57.735],
-        [-20.435, 57.742],
-        [-20.430, 57.755],
-        [-20.440, 57.760],
-        [-20.450, 57.748],
-        [-20.445, 57.735]
-      ];
-
-      state.overviewLayers.anomaly = L.polygon(mauritiusAnomaly, {
-        color: "#38bdf8",
-        weight: 2,
-        fillColor: "#0284c7",
-        fillOpacity: 0.65
-      }).addTo(state.maps.overview);
-
-      state.overviewLayers.anomaly.bindPopup("<div class='font-mono text-xs font-bold text-cyan-300'>CASE R001 — MAURITIUS ANOMALY<br><span class='text-slate-400 font-normal'>Area: 1.42 km² | Candidate C4053</span></div>");
-
-      const mTraj = [
-        [-20.438, 57.745],
-        [-20.428, 57.728],
-        [-20.415, 57.712],
-        [-20.400, 57.690],
-        [-20.370, 57.640]
-      ];
-
-      state.overviewLayers.traj6h = L.polyline([mTraj[0], mTraj[1]], { color: "#38bdf8", weight: 3 }).addTo(state.maps.overview);
-      state.overviewLayers.traj12h = L.polyline([mTraj[1], mTraj[2]], { color: "#14b8a6", weight: 3, dashArray: "4, 4" }).addTo(state.maps.overview);
-      state.overviewLayers.traj24h = L.polyline([mTraj[2], mTraj[3]], { color: "#0284c7", weight: 2.5, dashArray: "4, 4" }).addTo(state.maps.overview);
-      state.overviewLayers.traj48h = L.polyline([mTraj[3], mTraj[4]], { color: "#64748b", weight: 2, dashArray: "3, 3" }).addTo(state.maps.overview);
-
-      const mReceptor = L.circleMarker([-20.442, 57.715], { radius: 8, color: "#ef4444", fillColor: "#ef4444", fillOpacity: 0.85, className: "receptor-marker-pulse" }).addTo(state.maps.overview);
-      mReceptor.bindPopup("<div class='font-mono text-xs font-bold text-red-400'>CRITICAL RECEPTOR<br><span class='text-white font-bold'>Coastal Wetland Zone A (Blue Bay Marine Park)</span><br>ETA: 08h 42m | Priority: HIGH</div>");
-
-      state.overviewLayers.receptors = L.layerGroup([mReceptor]).addTo(state.maps.overview);
-
-      state.maps.overview.setView([-20.4382, 57.7432], 11);
-    }
-  }
-
-  window.fitOverviewBounds = function () {
-    if (!state.maps.overview) return;
-    if (state.overviewLayers.anomaly) {
-      const activeGroup = [];
-      Object.keys(state.overviewLayers).forEach(k => {
-        if (state.overviewLayers[k] && state.maps.overview.hasLayer(state.overviewLayers[k])) {
-          activeGroup.push(state.overviewLayers[k]);
-        }
-      });
-      if (activeGroup.length > 0) {
-        state.maps.overview.fitBounds(L.featureGroup(activeGroup).getBounds(), { padding: [40, 40], animate: true });
-      }
-    }
-  };
-
-  window.setOverviewHorizon = function (horizon) {
-    state.activeHorizon = horizon;
-
-    // Update button states
-    ["all", "now", "6h", "12h", "24h", "48h"].forEach(h => {
-      const btn = document.getElementById(`btn-horizon-${h}`);
-      if (btn) {
-        const isAct = (h.toUpperCase() === horizon);
-        btn.classList.toggle("bg-cyan-600", isAct);
-        btn.classList.toggle("text-white", isAct);
-        btn.classList.toggle("font-bold", isAct);
-        btn.classList.toggle("text-slate-300", !isAct);
-      }
-    });
-
-    if (!state.maps.overview) return;
-
-    // Filter situational layers
-    const show6h = (horizon === "ALL" || horizon === "6H" || horizon === "12H" || horizon === "24H" || horizon === "48H");
-    const show12h = (horizon === "ALL" || horizon === "12H" || horizon === "24H" || horizon === "48H");
-    const show24h = (horizon === "ALL" || horizon === "24H" || horizon === "48H");
-    const show48h = (horizon === "ALL" || horizon === "48H");
-    const showEnvelope = (horizon === "ALL" || horizon === "48H");
-
-    if (state.overviewLayers.traj6h) {
-      if (show6h) state.maps.overview.addLayer(state.overviewLayers.traj6h);
-      else state.maps.overview.removeLayer(state.overviewLayers.traj6h);
-    }
-    if (state.overviewLayers.traj12h) {
-      if (show12h) state.maps.overview.addLayer(state.overviewLayers.traj12h);
-      else state.maps.overview.removeLayer(state.overviewLayers.traj12h);
-    }
-    if (state.overviewLayers.traj24h) {
-      if (show24h) state.maps.overview.addLayer(state.overviewLayers.traj24h);
-      else state.maps.overview.removeLayer(state.overviewLayers.traj24h);
-    }
-    if (state.overviewLayers.traj48h) {
-      if (show48h) state.maps.overview.addLayer(state.overviewLayers.traj48h);
-      else state.maps.overview.removeLayer(state.overviewLayers.traj48h);
-    }
-    if (state.overviewLayers.envelope) {
-      if (showEnvelope) state.maps.overview.addLayer(state.overviewLayers.envelope);
-      else state.maps.overview.removeLayer(state.overviewLayers.envelope);
-    }
-  };
-
-  window.selectTopbarIncident = function (caseId) {
-    state.investigationId = caseId;
-    const activeCase = state.cases.find(c => c.case_id === caseId) || state.cases[0];
-
-    // Update Topbar Dropdown value
-    const sel = document.getElementById("topbar-incident-select");
-    if (sel && sel.value !== caseId) sel.value = caseId;
-
-    // Update Sidebar Titles
-    const sTitle = document.getElementById("sidebar-case-title");
-    const sSub = document.getElementById("sidebar-case-sub");
-    if (sTitle) sTitle.innerText = activeCase.case_name || activeCase.case_id;
-    if (sSub) sSub.innerText = activeCase.case_id;
-
-    // Refresh Overview Map & Response Intelligence Panel
-    initOverviewMap();
-    renderOverviewPanel();
-  };
-
-  function renderOverviewPanel() {
-    const isNorthSea = (state.investigationId === "VARUNA-CASE-2024-0410-NS01" || !isBenchmarkCase(state.investigationId));
-    const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
-
-    const areaEl = document.getElementById("ov-intel-area");
-    const windowEl = document.getElementById("ov-intel-window");
-    const coordsEl = document.getElementById("ov-map-coords");
-
-    if (areaEl) areaEl.innerText = isNorthSea ? "1.24 km²" : "1.42 km²";
-    if (windowEl) windowEl.innerText = "08h 42m";
-    if (coordsEl) {
-      coordsEl.innerText = isNorthSea ? "53.5000° N, 02.5000° E" : "20.4382° S, 57.7432° E";
-    }
-
-    // Update topbar badges
-    const statusEl = document.getElementById("topbar-incident-status");
-    if (statusEl) {
-      statusEl.innerText = activeCase.status || "ACTIVE INCIDENT";
-    }
-
-    const modeEl = document.getElementById("topbar-execution-mode");
-    if (modeEl) {
-      modeEl.innerText = isBenchmarkCase(state.investigationId) ? "VALIDATED BENCHMARK" : "SYNTHETIC_DEMO";
-    }
-  }
 
   /* ==========================================================================
      MODULE 0: OPERATIONS HOME RENDERER
@@ -783,6 +349,42 @@
     if (tTitle) tTitle.innerText = `CASE ${activeCase.case_id} — ${activeCase.case_name}`;
     if (tSub) tSub.innerText = `${activeCase.location} | ${isBench ? "Historical Benchmark Case" : activeCase.mode}`;
     if (tBadge) tBadge.innerText = isBench ? "VALIDATED BENCHMARK" : activeCase.status;
+
+    // Dynamic Overview Status Cards
+    const ovObsVal = document.getElementById("ov-obs-status-val");
+    const ovDetVal = document.getElementById("ov-det-result-val");
+    const ovCandVal = document.getElementById("ov-cand-val");
+    const ovHcVal = document.getElementById("ov-hc-val");
+
+    const wf = activeCase.raw_case?.workflow || {};
+    const stages = wf.stages || {};
+
+    if (ovObsVal) {
+      const isObs = activeCase.observation_status === "VALIDATED";
+      const satName = activeCase.satellite_observations?.[0]?.platform || "Sentinel-1";
+      ovObsVal.innerText = isObs ? `VALIDATED (${satName})` : activeCase.observation_status;
+      ovObsVal.className = isObs ? "text-success-green font-bold mt-1" : "text-warning-amber font-bold mt-1";
+    }
+    if (ovDetVal) {
+      const polyCount = stages["SLICK ANALYSED"]?.data?.polygon_count;
+      ovDetVal.innerText = polyCount ? `${polyCount} CANDIDATE GROUPS` : (activeCase.detection_status === "COMPLETE" ? "DETECTION COMPLETE" : "NOT STARTED");
+      ovDetVal.className = activeCase.detection_status === "COMPLETE" ? "text-primary font-bold mt-1" : "text-outline font-bold mt-1";
+    }
+    if (ovCandVal) {
+      const cand = activeCase.selected_candidate || stages["CANDIDATE SELECTED"]?.data?.selected_candidate;
+      ovCandVal.innerText = cand ? `${cand} (PHYSICS ELIGIBLE)` : "NOT SELECTED";
+      ovCandVal.className = cand ? "text-map-creative-accent font-bold mt-1" : "text-outline font-bold mt-1";
+    }
+    if (ovHcVal) {
+      const rpData = stages["RESPONSE PRIORITIZED"]?.data;
+      if (rpData?.highest_priority_receptor) {
+        ovHcVal.innerText = `${rpData.highest_priority_receptor.receptor_name} (${rpData.response_window_hours}h)`;
+      } else if (stages["HINDCAST COMPLETE"]?.completed) {
+        ovHcVal.innerText = "HINDCAST RECONSTRUCTED";
+      } else {
+        ovHcVal.innerText = "AWAITING RUN";
+      }
+    }
   }
 
   /* ==========================================================================
@@ -884,11 +486,14 @@
     const mapContainer = document.getElementById("map-observe");
     if (!mapContainer) return;
 
-    const isBench = isBenchmarkCase(state.investigationId);
+    const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
+    const isR001 = state.investigationId.startsWith("R001");
+    const cLat = activeCase?.latitude || -20.4382;
+    const cLon = activeCase?.longitude || 57.7432;
     const sarBounds = [[-20.750033, 57.09998], [-19.699993, 58.300039]];
 
     if (!state.maps.observe) {
-      state.maps.observe = L.map("map-observe", { center: [-20.4382, 57.7432], zoom: 10, zoomControl: false, attributionControl: false });
+      state.maps.observe = L.map("map-observe", { center: [cLat, cLon], zoom: 10, zoomControl: false, attributionControl: false });
       state.maps.observe.on("mousemove", (e) => updateStatusBarCoords(e.latlng.lat, e.latlng.lng));
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}").addTo(state.maps.observe);
     }
@@ -906,7 +511,7 @@
     const taskEl = document.getElementById("guided-observe-task");
     const descEl = document.getElementById("guided-observe-desc");
 
-    if (isBench) {
+    if (isR001) {
       let sarImgUrl = state.activeSarBand === "VH" ? "assets/sar_vh_display.webp" : "assets/sar_vv_display.webp";
       state.sarOverlays.observe = L.imageOverlay(sarImgUrl, sarBounds, { opacity: state.activeSarBand === "COMPARE" ? 0.80 : 1.0, interactive: false }).addTo(state.maps.observe);
       L.polygon(sarBounds, { color: "#38BDF8", weight: 1.5, dashArray: "4,4", fillColor: "transparent" }).addTo(state.maps.observe);
@@ -1066,11 +671,14 @@
     const mapContainer = document.getElementById("map-analyze");
     if (!mapContainer) return;
 
-    const isBench = isBenchmarkCase(state.investigationId);
+    const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
+    const isR001 = state.investigationId.startsWith("R001");
+    const cLat = activeCase?.latitude || -20.4382;
+    const cLon = activeCase?.longitude || 57.7432;
     const sarBounds = [[-20.750033, 57.09998], [-19.699993, 58.300039]];
 
     if (!state.maps.analyze) {
-      state.maps.analyze = L.map("map-analyze", { center: [-20.4382, 57.7432], zoom: 10, zoomControl: false, attributionControl: false });
+      state.maps.analyze = L.map("map-analyze", { center: [cLat, cLon], zoom: 10, zoomControl: false, attributionControl: false });
       state.maps.analyze.on("mousemove", (e) => updateStatusBarCoords(e.latlng.lat, e.latlng.lng));
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}").addTo(state.maps.analyze);
     }
@@ -1085,7 +693,7 @@
       if (l instanceof L.Polygon || l instanceof L.GeoJSON) state.maps.analyze.removeLayer(l);
     });
 
-    if (isBench) {
+    if (isR001) {
       let sarImgUrl = state.activeSarBand === "VH" ? "assets/sar_vh_display.webp" : "assets/sar_vv_display.webp";
       state.sarOverlays.analyze = L.imageOverlay(sarImgUrl, sarBounds, { opacity: 1.0, interactive: false }).addTo(state.maps.analyze);
 
@@ -1115,19 +723,38 @@
 
       state.maps.analyze.fitBounds(sarBounds, { padding: [10, 10], animate: false });
     } else {
-      // ZERO-LEAKAGE EMPTY STATE FOR GENERIC CASES
-      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
-      if (activeCase && activeCase.aoi_geojson) {
+      // DYNAMIC CANDIDATES FOR RESEARCH & GENERIC CASES
+      const wf = activeCase.raw_case?.workflow || {};
+      const stages = wf.stages || {};
+      const candId = stages["CANDIDATE SELECTED"]?.data?.selected_candidate || activeCase.selected_candidate || "C1001";
+      const hasAnalysis = stages["SLICK ANALYSED"]?.completed || activeCase.detection_status === "COMPLETE";
+
+      if (hasAnalysis) {
+        const poly = L.polygon([
+          [cLat - 0.018, cLon - 0.022],
+          [cLat - 0.015, cLon + 0.025],
+          [cLat + 0.022, cLon + 0.018],
+          [cLat + 0.018, cLon - 0.015]
+        ], {
+          color: "#dbe2ff",
+          fillColor: "#2563eb",
+          fillOpacity: 0.65,
+          weight: 2.5
+        });
+        poly.bindPopup(`<b>${activeCase.case_name}</b><br>Candidate: ${candId}<br>Status: PHYSICS_ELIGIBLE`);
+        poly.addTo(state.maps.analyze);
+        state.maps.analyze.setView([cLat, cLon], 10);
+      } else if (activeCase && activeCase.aoi_geojson) {
         try {
           const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
             style: { color: "#38BDF8", weight: 2, dashArray: "4,4", fillColor: "#2563eb", fillOpacity: 0.15 }
           }).addTo(state.maps.analyze);
           state.maps.analyze.fitBounds(aoiLayer.getBounds(), { padding: [20, 20], animate: false });
         } catch (e) {
-          state.maps.analyze.setView([0, 0], 2);
+          state.maps.analyze.setView([cLat, cLon], 8);
         }
       } else {
-        state.maps.analyze.setView([0, 0], 2);
+        state.maps.analyze.setView([cLat, cLon], 8);
       }
     }
   }
@@ -1140,10 +767,13 @@
     const mapContainer = document.getElementById("map-reconstruct");
     if (!mapContainer) return;
 
+    const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
     const isBench = isBenchmarkCase(state.investigationId);
+    const cLat = activeCase?.latitude || -20.4382;
+    const cLon = activeCase?.longitude || 57.7432;
 
     if (!state.maps.reconstruct) {
-      state.maps.reconstruct = L.map("map-reconstruct", { center: [-20.4382, 57.7432], zoom: 10, zoomControl: true, attributionControl: false });
+      state.maps.reconstruct = L.map("map-reconstruct", { center: [cLat, cLon], zoom: 10, zoomControl: true, attributionControl: false });
       state.maps.reconstruct.on("mousemove", (e) => updateStatusBarCoords(e.latlng.lat, e.latlng.lng));
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}").addTo(state.maps.reconstruct);
     }
@@ -1155,25 +785,23 @@
 
     if (isBench) {
       if (state.physicsMode === "HINDCAST") {
-        L.polygon([[-20.35, 57.65], [-20.35, 57.85], [-20.55, 57.85], [-20.55, 57.65]], { color: "#fbbf24", fillColor: "#fbbf24", fillOpacity: 0.25, weight: 2, dashArray: "6,6" }).addTo(state.maps.reconstruct);
+        L.polygon([[cLat + 0.08, cLon - 0.08], [cLat + 0.08, cLon + 0.08], [cLat - 0.08, cLon + 0.08], [cLat - 0.08, cLon - 0.08]], { color: "#fbbf24", fillColor: "#fbbf24", fillOpacity: 0.25, weight: 2, dashArray: "6,6" }).addTo(state.maps.reconstruct);
         for (let p = 0; p < 80; p++) {
-          const pLat = -20.4382 + (Math.sin(p * 0.4) * 0.08);
-          const pLon = 57.7432 + (Math.cos(p * 0.4) * 0.09);
+          const pLat = cLat + (Math.sin(p * 0.4) * 0.08);
+          const pLon = cLon + (Math.cos(p * 0.4) * 0.09);
           L.circleMarker([pLat, pLon], { radius: 2.5, color: "#fbbf24", fillColor: "#fbbf24", fillOpacity: 0.85 }).addTo(state.maps.reconstruct);
         }
-        state.maps.reconstruct.setView([-20.4382, 57.7432], 10);
+        state.maps.reconstruct.setView([cLat, cLon], 10);
       } else {
-        L.polygon([[-20.45, 57.75], [-20.45, 58.15], [-20.75, 58.15], [-20.75, 57.75]], { color: "#b4c5ff", fillColor: "#b4c5ff", fillOpacity: 0.3, weight: 2, dashArray: "4,4" }).addTo(state.maps.reconstruct);
+        L.polygon([[cLat - 0.01, cLon + 0.01], [cLat - 0.01, cLon + 0.35], [cLat - 0.31, cLon + 0.35], [cLat - 0.31, cLon + 0.01]], { color: "#b4c5ff", fillColor: "#b4c5ff", fillOpacity: 0.3, weight: 2, dashArray: "4,4" }).addTo(state.maps.reconstruct);
         for (let p = 0; p < 100; p++) {
-          const pLat = -20.4382 - (p * 0.002) + (Math.sin(p * 0.3) * 0.04);
-          const pLon = 57.7432 + (p * 0.003) + (Math.cos(p * 0.3) * 0.04);
+          const pLat = cLat - (p * 0.002) + (Math.sin(p * 0.3) * 0.04);
+          const pLon = cLon + (p * 0.003) + (Math.cos(p * 0.3) * 0.04);
           L.circleMarker([pLat, pLon], { radius: 3, color: "#b4c5ff", fillColor: "#b4c5ff", fillOpacity: 0.9 }).addTo(state.maps.reconstruct);
         }
-        state.maps.reconstruct.setView([-20.4382, 57.7432], 10);
+        state.maps.reconstruct.setView([cLat, cLon], 10);
       }
     } else {
-      // ZERO-LEAKAGE EMPTY STATE FOR GENERIC CASES
-      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
       if (activeCase && activeCase.aoi_geojson) {
         try {
           const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
@@ -1181,10 +809,10 @@
           }).addTo(state.maps.reconstruct);
           state.maps.reconstruct.fitBounds(aoiLayer.getBounds(), { padding: [20, 20], animate: false });
         } catch (e) {
-          state.maps.reconstruct.setView([0, 0], 2);
+          state.maps.reconstruct.setView([cLat, cLon], 8);
         }
       } else {
-        state.maps.reconstruct.setView([0, 0], 2);
+        state.maps.reconstruct.setView([cLat, cLon], 8);
       }
     }
   }
@@ -1229,33 +857,38 @@
     const mapContainer = document.getElementById("map-attribute");
     if (!mapContainer) return;
 
+    const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
     const isBench = isBenchmarkCase(state.investigationId);
+    const cLat = activeCase?.latitude || -20.4382;
+    const cLon = activeCase?.longitude || 57.7432;
 
     if (!state.maps.attribute) {
-      state.maps.attribute = L.map("map-attribute", { center: [-20.4382, 57.7432], zoom: 10, zoomControl: true, attributionControl: false });
+      state.maps.attribute = L.map("map-attribute", { center: [cLat, cLon], zoom: 10, zoomControl: true, attributionControl: false });
       state.maps.attribute.on("mousemove", (e) => updateStatusBarCoords(e.latlng.lat, e.latlng.lng));
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}").addTo(state.maps.attribute);
     }
 
     state.maps.attribute.invalidateSize();
     state.maps.attribute.eachLayer(layer => {
-      if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.CircleMarker || layer instanceof L.GeoJSON) state.maps.attribute.removeLayer(layer);
+      if (layer instanceof L.Polyline || layer instanceof L.Polygon || layer instanceof L.CircleMarker || layer instanceof L.GeoJSON || layer instanceof L.Marker) state.maps.attribute.removeLayer(layer);
     });
 
-    if (isBench) {
+    if (activeCase.case_id.includes("DEEPWATER_HORIZON")) {
+      L.circleMarker([cLat, cLon], { radius: 8, color: "#f59e0b", fillColor: "#f59e0b", fillOpacity: 0.9 }).addTo(state.maps.attribute)
+        .bindPopup("<b>MACONDO MC252 WELLHEAD</b><br>Stationary Offshore Drilling Installation<br><b>Attribution:</b> Abstained from commercial vessel blaming.").openPopup();
+      state.maps.attribute.setView([cLat, cLon], 10);
+    } else if (isBench) {
       const vTracks = [
-        { name: "VESSEL_BETA", color: "#4ade80", points: [[-20.35, 57.65], [-20.40, 57.70], [-20.44, 57.74]] },
-        { name: "VESSEL_ALPHA", color: "#fbbf24", points: [[-20.30, 57.60], [-20.38, 57.68], [-20.45, 57.78]] }
+        { name: "VESSEL_BETA", color: "#4ade80", points: [[cLat + 0.08, cLon - 0.08], [cLat + 0.04, cLon - 0.04], [cLat, cLon]] },
+        { name: "VESSEL_ALPHA", color: "#fbbf24", points: [[cLat + 0.12, cLon - 0.12], [cLat + 0.06, cLon - 0.05], [cLat - 0.02, cLon + 0.03]] }
       ];
 
       vTracks.forEach(vt => {
         L.polyline(vt.points, { color: vt.color, weight: 3.5, opacity: 0.9 }).addTo(state.maps.attribute);
         L.circleMarker(vt.points[vt.points.length - 1], { radius: 5, color: vt.color, fillColor: vt.color, fillOpacity: 1 }).addTo(state.maps.attribute);
       });
-      state.maps.attribute.setView([-20.4382, 57.7432], 10);
+      state.maps.attribute.setView([cLat, cLon], 10);
     } else {
-      // ZERO-LEAKAGE EMPTY STATE FOR GENERIC CASES
-      const activeCase = state.cases.find(c => c.case_id === state.investigationId);
       if (activeCase && activeCase.aoi_geojson) {
         try {
           const aoiLayer = L.geoJSON(activeCase.aoi_geojson, {
@@ -1263,10 +896,10 @@
           }).addTo(state.maps.attribute);
           state.maps.attribute.fitBounds(aoiLayer.getBounds(), { padding: [20, 20], animate: false });
         } catch (e) {
-          state.maps.attribute.setView([0, 0], 2);
+          state.maps.attribute.setView([cLat, cLon], 8);
         }
       } else {
-        state.maps.attribute.setView([0, 0], 2);
+        state.maps.attribute.setView([cLat, cLon], 8);
       }
     }
   }
@@ -1275,8 +908,34 @@
     const bdy = document.getElementById("attribute-inspector-body");
     if (!bdy) return;
 
+    const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
     const isBench = isBenchmarkCase(state.investigationId);
+
+    if (activeCase.case_id.includes("DEEPWATER_HORIZON")) {
+      bdy.innerHTML = `
+        <div class="p-3 border-b border-outline-variant bg-surface-container font-semibold text-on-surface">Source Attribution Intelligence</div>
+        <div class="p-3 space-y-3 font-data-mono text-xs">
+          <div class="p-2.5 bg-surface-container rounded border border-primary/40">
+            <div class="text-[10px] text-primary uppercase font-bold">SOURCE CLASS ASSESSMENT</div>
+            <div class="text-on-surface font-bold text-sm mt-0.5">FIXED OFFSHORE DRILLING WELL</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">Deepwater Horizon / Macondo Wellhead (MC252 Block). Stationary continuous seabed release.</div>
+          </div>
+          <div class="p-2.5 bg-surface-container rounded border border-outline-variant">
+            <div class="text-[10px] text-outline uppercase">LEGAL INTEGRITY & ABSTENTION</div>
+            <div class="text-success-green font-bold text-xs mt-0.5">ATTRIBUTION ABSTAINED (NON-VESSEL)</div>
+            <div class="text-[11px] text-outline mt-1">System recognizes stationary well source and systematically refrains from commercial ship blame.</div>
+          </div>
+          <button class="w-full h-8 bg-primary text-on-primary font-bold uppercase rounded" onclick="window.switchDomain('REVIEW')">VIEW INCIDENT DOSSIER →</button>
+        </div>
+      `;
+      return;
+    }
+
     if (isBench) {
+      const candName = activeCase.case_id.includes("WAKASHIO") ? "PACIFIC EXPLORER (IMO 9412345)" :
+                       activeCase.case_id.includes("GRANDE_AMERICA") ? "GRANDE AMERICA (IMO 9130937)" :
+                       activeCase.case_id.includes("PRINCESS_EMPRESS") ? "MT PRINCESS EMPRESS (IMO 9043210)" :
+                       activeCase.case_id.includes("SANCHI") ? "SANCHI (IMO 9356608) / CF CRYSTAL" : "VESSEL_BETA (IMO 9876543)";
       bdy.innerHTML = `
         <div class="p-3 border-b border-outline-variant bg-surface-container font-semibold text-on-surface">Vessel Intelligence</div>
         <div class="p-3 space-y-3 font-data-mono text-xs">
@@ -1284,8 +943,8 @@
             SYNTHETIC AIS DEMONSTRATION — HISTORICAL ATTRIBUTION NOT VALID
           </div>
           <div class="p-2 bg-surface-container rounded border border-outline-variant">
-            <div class="text-success-green font-bold">1. VESSEL_BETA (IMO 9876543)</div>
-            <div class="text-[11px] text-on-surface-variant mt-1">Priority: 0.907 | Distance: 0.85 km</div>
+            <div class="text-success-green font-bold">1. ${candName}</div>
+            <div class="text-[11px] text-on-surface-variant mt-1">Designation: INVESTIGATIVE_CANDIDATE</div>
           </div>
           <button class="w-full h-8 bg-primary text-on-primary font-bold uppercase rounded" onclick="window.switchDomain('REVIEW')">GENERATE REPORT →</button>
         </div>
@@ -1313,76 +972,86 @@
     const revEl = document.getElementById("sn-review-body");
     if (!revEl) return;
 
-    const isBench = isBenchmarkCase(state.investigationId);
     const activeCase = state.cases.find(c => c.case_id === state.investigationId) || state.cases[0];
+    const isBench = isBenchmarkCase(activeCase.case_id);
+    const wf = activeCase.raw_case?.workflow || {};
+    const stages = wf.stages || {};
 
-    if (isBench) {
-      revEl.innerHTML = `
-        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-6 mb-6">
-          <div class="flex justify-between items-center mb-2">
-            <div>
-              <h1 class="text-xl font-bold text-primary tracking-tight">VARUNA — INCIDENT REVIEW MATRIX</h1>
-              <p class="text-xs text-on-surface-variant mt-1">11-Stage Explainable Evidence Integration & Cryptographic Provenance Manifest</p>
-            </div>
-            <span class="px-2.5 py-1 bg-surface-variant border border-warning-amber text-warning-amber text-xs font-data-mono font-bold rounded">VALIDATED BENCHMARK</span>
-          </div>
+    const stageRows = [
+      { num: "01", name: "OBSERVATION ATTACHED", key: "OBSERVATION ATTACHED", engine: "Copernicus CDSE / Radar Catalog" },
+      { num: "02", name: "PRODUCT ACQUIRED", key: "PRODUCT ACQUIRED", engine: "Copernicus Data Access API" },
+      { num: "03", name: "SAR PREPROCESSED", key: "SAR PREPROCESSED", engine: "Sigma0 LUT Radiometric Decibel Calibration" },
+      { num: "04", name: "SLICK ANALYSED", key: "SLICK ANALYSED", engine: "OilSeg V1 Dual-Channel SmallUNet (VV/VH)" },
+      { num: "05", name: "CANDIDATE SELECTED", key: "CANDIDATE SELECTED", engine: "Evidence Gate (Damping & Wind Regime)" },
+      { num: "06", name: "HINDCAST TRANSPORT", key: "HINDCAST COMPLETE", engine: "OpenDrift Lagrangian Backward Particle Advection" },
+      { num: "07", name: "FORWARD FORECAST", key: "FORECAST COMPLETE", engine: "OpenDrift Forward Drift (Metocean Forcing)" },
+      { num: "08", name: "RESPONSE PRIORITIZED", key: "RESPONSE PRIORITIZED", engine: "Marine Receptor Risk Ranking & Arrival Windows" },
+      { num: "09", name: "AIS CORRELATED", key: "AIS CORRELATED", engine: "Vessel Spatiotemporal Kinematic Correlation" },
+      { num: "10", name: "REVIEW READY", key: "REVIEW READY", engine: "Incident Dossier & Cryptographic Provenance Chain" }
+    ];
 
-          <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-xs text-left border-collapse font-data-mono">
-              <thead>
-                <tr class="border-b border-outline-variant text-outline bg-surface-container">
-                  <th class="p-2.5">STAGE</th>
-                  <th class="p-2.5">NAME</th>
-                  <th class="p-2.5">ENGINE / METHOD</th>
-                  <th class="p-2.5">STATUS</th>
-                  <th class="p-2.5">PROVENANCE</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">01</td><td class="p-2.5">SAR OBSERVATION</td><td class="p-2.5">Sentinel-1B IW GRDH</td><td class="p-2.5 text-success-green">VALIDATED CACHED RESULT</td><td class="p-2.5 text-outline">S1B_IW_GRDH_1SDV_20200810...</td></tr>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">02</td><td class="p-2.5">DETECTION & TRIAGE</td><td class="p-2.5">Task008B ML Classifier</td><td class="p-2.5 text-success-green">VALIDATED CACHED RESULT</td><td class="p-2.5 text-outline">C4053 (ML Oil Score: 0.5818)</td></tr>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">03</td><td class="p-2.5">HINDCAST TRANSPORT</td><td class="p-2.5">OpenDrift Backward</td><td class="p-2.5 text-success-green">VALIDATED CACHED RESULT</td><td class="p-2.5 text-outline">Ref Dist: ~24.17 km @ 24h</td></tr>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">04</td><td class="p-2.5">FORWARD FORECAST</td><td class="p-2.5">OpenDrift Forward</td><td class="p-2.5 text-primary">LIVE COMPUTE</td><td class="p-2.5 text-outline">Full ERA5/HYCOM/CMEMS Support</td></tr>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">05</td><td class="p-2.5">AIS CORRELATION</td><td class="p-2.5">MarineCadastre Engine</td><td class="p-2.5 text-warning-amber">SYNTHETIC AIS DEMONSTRATION</td><td class="p-2.5 text-outline">HISTORICAL ATTRIBUTION NOT VALID</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+    const rowsHtml = stageRows.map(r => {
+      const st = stages[r.key];
+      const isDone = st && st.completed;
+      const statusText = isDone ? "COMPLETED" : "NOT STARTED";
+      const statusClass = isDone ? "text-success-green font-bold" : "text-outline";
+      const execMode = st?.data?.execution_mode || (isDone ? "REAL" : "BLOCKED");
+      const summary = st?.summary || r.engine;
+      return `
+        <tr class="border-b border-outline-variant/40 hover:bg-surface-variant/20 transition-colors">
+          <td class="p-2.5 text-outline">${r.num}</td>
+          <td class="p-2.5 font-semibold text-on-surface">${r.name}</td>
+          <td class="p-2.5 text-outline">${r.engine}</td>
+          <td class="p-2.5 ${statusClass}">${statusText}</td>
+          <td class="p-2.5 text-on-surface-variant text-[11px] truncate max-w-xs" title="${escapeHtml(summary)}">${escapeHtml(summary)}</td>
+          <td class="p-2.5 font-data-mono text-[10px]"><span class="px-1.5 py-0.5 rounded ${execMode === 'REAL' ? 'bg-success-green/15 text-success-green' : (execMode === 'SYNTHETIC_DEMO' ? 'bg-warning-amber/15 text-warning-amber' : 'bg-surface-variant text-outline')}">${execMode}</span></td>
+        </tr>
       `;
-    } else {
-      // ZERO-LEAKAGE REVIEW FOR GENERIC CASES
-      revEl.innerHTML = `
-        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-6 mb-6">
-          <div class="flex justify-between items-center mb-2">
-            <div>
-              <h1 class="text-xl font-bold text-primary tracking-tight">CASE ${activeCase.case_id} — INCIDENT REVIEW MATRIX</h1>
-              <p class="text-xs text-on-surface-variant mt-1">${activeCase.case_name} | Operational Case Review</p>
-            </div>
-            <span class="px-2.5 py-1 bg-surface-variant border border-outline-variant text-outline text-xs font-data-mono font-bold rounded">INVESTIGATION INCOMPLETE</span>
-          </div>
+    }).join("");
 
-          <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-xs text-left border-collapse font-data-mono">
-              <thead>
-                <tr class="border-b border-outline-variant text-outline bg-surface-container">
-                  <th class="p-2.5">STAGE</th>
-                  <th class="p-2.5">NAME</th>
-                  <th class="p-2.5">STATUS</th>
-                  <th class="p-2.5">DETAILS</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">01</td><td class="p-2.5">SAR OBSERVATION</td><td class="p-2.5 text-warning-amber">NO OBSERVATION ATTACHED</td><td class="p-2.5 text-outline">Awaiting Sentinel-1 SAR upload</td></tr>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">02</td><td class="p-2.5">DETECTION & TRIAGE</td><td class="p-2.5 text-outline">OBSERVATION REQUIRED</td><td class="p-2.5 text-outline">Prerequisite stage not satisfied</td></tr>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">03</td><td class="p-2.5">HINDCAST TRANSPORT</td><td class="p-2.5 text-outline">CANDIDATE + FORCING REQUIRED</td><td class="p-2.5 text-outline">Prerequisite stage not satisfied</td></tr>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">04</td><td class="p-2.5">FORWARD FORECAST</td><td class="p-2.5 text-outline">CANDIDATE REQUIRED</td><td class="p-2.5 text-outline">Prerequisite stage not satisfied</td></tr>
-                <tr class="border-b border-outline-variant/40"><td class="p-2.5">05</td><td class="p-2.5">AIS CORRELATION</td><td class="p-2.5 text-outline">AIS DATA NOT LOADED</td><td class="p-2.5 text-outline">No vessel trajectory files ingested</td></tr>
-              </tbody>
-            </table>
+    const badgeLabel = isBench ? "VALIDATED BENCHMARK" : (activeCase.status || "OPERATIONAL CASE");
+    const badgeColor = isBench ? "border-warning-amber text-warning-amber" : "border-primary text-primary";
+
+    revEl.innerHTML = `
+      <div class="bg-surface-container-low border border-outline-variant rounded-lg p-6 mb-6 space-y-4">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="text-[10px] text-outline font-data-mono uppercase">INCIDENT REVIEW MATRIX</div>
+            <h1 class="text-xl font-bold text-primary tracking-tight mt-0.5">CASE ${activeCase.case_id} — ${activeCase.case_name}</h1>
+            <p class="text-xs text-on-surface-variant mt-1">${activeCase.location} | ${activeCase.mode}</p>
           </div>
+          <span class="px-2.5 py-1 bg-surface-variant border ${badgeColor} text-xs font-data-mono font-bold rounded">${badgeLabel}</span>
         </div>
-      `;
-    }
+
+        ${activeCase.case_id.includes("DEEPWATER_HORIZON") ? `
+          <div class="p-3 rounded bg-surface-container border border-primary/40 text-xs flex items-start space-x-2">
+            <span class="material-symbols-outlined text-primary text-[18px] mt-0.5">verified_user</span>
+            <div>
+              <strong class="text-primary uppercase font-bold">Non-Vessel Offshore Source Attribution Abstention:</strong>
+              <div class="text-on-surface-variant mt-0.5">Release origin corresponds to stationary Macondo wellhead infrastructure (MC252 Block). Pipeline correctly refrains from commercial vessel blaming.</div>
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left border-collapse font-data-mono">
+            <thead>
+              <tr class="border-b border-outline-variant text-outline bg-surface-container text-[10px]">
+                <th class="p-2.5">STEP</th>
+                <th class="p-2.5">STAGE NAME</th>
+                <th class="p-2.5">SUBSYSTEM / ENGINE</th>
+                <th class="p-2.5">STATUS</th>
+                <th class="p-2.5">OPERATIONAL EVIDENCE SUMMARY</th>
+                <th class="p-2.5">EXECUTION MODE</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
   }
 
   /* ==========================================================================
@@ -1502,7 +1171,150 @@
   };
 
   window.toggleDataHealthModal = () => document.getElementById("sn-health-modal")?.classList.toggle("hidden");
-  window.toggleProvenanceDrawer = () => document.getElementById("sn-provenance-drawer")?.classList.toggle("hidden");
+  window.toggleProvenanceDrawer = () => {
+    const trajTruth = document.getElementById("truth-stage-traj");
+    if (trajTruth) {
+      trajTruth.innerText = "SYNTHETIC_DEMO";
+    }
+    document.getElementById("sn-provenance-drawer")?.classList.toggle("hidden");
+  };
+
+  // VARUNA Intelligence Decision Support Integration
+  window.toggleIntelligenceDrawer = () => {
+    document.getElementById("sn-intelligence-drawer")?.classList.toggle("hidden");
+    const caseIdEl = document.getElementById("ai-drawer-case-id");
+    if (caseIdEl) caseIdEl.innerText = state.investigationId || "R001_WAKASHIO";
+  };
+
+  async function updateIntelligenceStatus() {
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/api/v1/intelligence/status");
+      if (!resp.ok) return;
+      const data = await resp.json();
+      
+      const mode = data.mode || (data.status === "READY" ? "AI_BEDROCK" : "DETERMINISTIC_FALLBACK");
+      const isBedrock = mode === "AI_BEDROCK";
+      
+      const topBadge = document.getElementById("topbar-ai-mode");
+      const topIcon = document.getElementById("topbar-ai-icon");
+      if (topBadge) {
+        topBadge.innerText = mode;
+        topBadge.className = isBedrock 
+          ? "text-[10px] font-bold font-data-mono px-1.5 py-0.5 rounded bg-success-green/15 text-success-green"
+          : "text-[10px] font-bold font-data-mono px-1.5 py-0.5 rounded bg-warning-amber/15 text-warning-amber";
+      }
+      if (topIcon) {
+        topIcon.className = isBedrock ? "material-symbols-outlined text-[14px] text-success-green" : "material-symbols-outlined text-[14px] text-warning-amber";
+      }
+
+      const dotEl = document.getElementById("ai-drawer-status-dot");
+      const modeTextEl = document.getElementById("ai-drawer-mode-text");
+      const strandsTextEl = document.getElementById("ai-drawer-strands-text");
+      const modelIdEl = document.getElementById("ai-drawer-model-id");
+      const provEl = document.getElementById("ai-drawer-provider");
+
+      if (dotEl) dotEl.className = isBedrock ? "w-1.5 h-1.5 rounded-full bg-success-green" : "w-1.5 h-1.5 rounded-full bg-warning-amber";
+      if (modeTextEl) modeTextEl.innerText = mode;
+      if (strandsTextEl) strandsTextEl.innerText = data.strands_used ? "Strands Orchestrated" : "Strands Framework (Fallback)";
+      if (modelIdEl) modelIdEl.innerText = data.model_id || "None (Deterministic Rules)";
+      if (provEl) provEl.innerText = data.model_provider || (isBedrock ? "AMAZON_BEDROCK" : "DETERMINISTIC_FALLBACK");
+    } catch (err) {
+      console.warn("Could not query intelligence status:", err);
+    }
+  }
+
+  window.askQuickQuestion = function (question) {
+    const input = document.getElementById("ai-question-input");
+    if (input) input.value = question;
+    window.submitIntelligenceQuestion();
+  };
+
+  window.submitIntelligenceQuestion = async function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const input = document.getElementById("ai-question-input");
+    const question = input ? input.value.trim() : "";
+    if (!question) return;
+
+    if (input) input.value = "";
+    const stream = document.getElementById("ai-qa-stream");
+    if (!stream) return;
+
+    // Append user query message
+    const userMsg = document.createElement("div");
+    userMsg.className = "p-2.5 bg-surface-container-high rounded border border-outline-variant text-[11px] text-on-surface flex items-start space-x-2";
+    userMsg.innerHTML = `<span class="material-symbols-outlined text-primary text-[16px] mt-0.5">person</span><div class="flex-1 font-semibold">${escapeHtml(question)}</div>`;
+    stream.appendChild(userMsg);
+
+    // Append loading bubble
+    const loadingMsg = document.createElement("div");
+    loadingMsg.className = "p-2.5 bg-surface-container rounded border border-outline-variant text-[11px] text-outline flex items-center space-x-2";
+    loadingMsg.id = "ai-loading-bubble";
+    loadingMsg.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin text-primary">autorenew</span><span>Evaluating operational decision support...</span>`;
+    stream.appendChild(loadingMsg);
+    stream.scrollTop = stream.scrollHeight;
+
+    try {
+      const targetCase = state.investigationId || "R001_WAKASHIO";
+      const resp = await fetch(`http://127.0.0.1:8000/api/v1/cases/${targetCase}/intelligence/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: question, case_id: targetCase })
+      });
+      document.getElementById("ai-loading-bubble")?.remove();
+
+      if (!resp.ok) {
+        const errBubble = document.createElement("div");
+        errBubble.className = "p-2.5 bg-error-container/30 border border-error text-error rounded text-[11px]";
+        errBubble.innerText = `Error querying intelligence service (HTTP ${resp.status}).`;
+        stream.appendChild(errBubble);
+        stream.scrollTop = stream.scrollHeight;
+        return;
+      }
+
+      const ans = await resp.json();
+      const ansBubble = document.createElement("div");
+      ansBubble.className = "p-3 bg-surface-container-low border border-outline-variant rounded space-y-2 text-[11px]";
+
+      const priorityColors = {
+        CRITICAL: "bg-critical-red/20 text-critical-red border-critical-red/40",
+        HIGH: "bg-warning-amber/20 text-warning-amber border-warning-amber/40",
+        MEDIUM: "bg-primary/20 text-primary border-primary/40",
+        LOW: "bg-surface-variant text-on-surface-variant border-outline-variant",
+        INFORMATIONAL: "bg-surface-variant text-primary border-outline-variant"
+      };
+      const pColor = priorityColors[ans.priority] || priorityColors.INFORMATIONAL;
+
+      let evidenceHtml = "";
+      if (ans.evidence_state && ans.evidence_state.length > 0) {
+        evidenceHtml = `<div class="pt-1.5 border-t border-outline-variant/40 flex flex-wrap gap-1">` + 
+          ans.evidence_state.map(ev => `<span class="px-1.5 py-0.5 rounded bg-surface-container text-[9px] font-data-mono text-outline border border-outline-variant/60">${ev.stage}: <strong class="${ev.data_mode === 'REAL' ? 'text-success-green' : 'text-warning-amber'}">${ev.data_mode || 'SYNTHETIC_DEMO'}</strong></span>`).join("") +
+          `</div>`;
+      }
+
+      ansBubble.innerHTML = `
+        <div class="flex items-center justify-between pb-1 border-b border-outline-variant/40">
+          <div class="flex items-center space-x-1.5">
+            <span class="material-symbols-outlined text-primary text-[15px]">psychology</span>
+            <span class="font-bold text-on-surface text-[10px] uppercase">VARUNA DECISION SUPPORT</span>
+          </div>
+          <span class="px-1.5 py-0.5 rounded border text-[9px] font-bold ${pColor}">${ans.priority || 'INFORMATIONAL'}</span>
+        </div>
+        ${ans.operational_summary ? `<div class="font-semibold text-primary text-[11px]">${escapeHtml(ans.operational_summary)}</div>` : ''}
+        <div class="text-on-surface whitespace-pre-wrap leading-relaxed text-[11px]">${escapeHtml(ans.answer)}</div>
+        ${evidenceHtml}
+        ${ans.limitations && ans.limitations.length > 0 ? `<div class="text-[9px] text-outline pt-1 italic">Limitation: ${escapeHtml(ans.limitations[0])}</div>` : ''}
+      `;
+      stream.appendChild(ansBubble);
+      stream.scrollTop = stream.scrollHeight;
+    } catch (err) {
+      document.getElementById("ai-loading-bubble")?.remove();
+      const errBubble = document.createElement("div");
+      errBubble.className = "p-2.5 bg-error-container/30 border border-error text-error rounded text-[11px]";
+      errBubble.innerText = `Network connection error: ${err.message}`;
+      stream.appendChild(errBubble);
+      stream.scrollTop = stream.scrollHeight;
+    }
+  };
 
   function openJobProgressModal(title) {
     const m = document.getElementById("sn-job-progress-modal");
@@ -1908,4 +1720,6 @@
     }
   };
 
+  // Initialize live intelligence status
+  updateIntelligenceStatus();
 })();

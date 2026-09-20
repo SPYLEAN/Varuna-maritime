@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import analysis, cases, evidence, files, investigation, satellite, workflow
+from .routers import analysis, cases, evidence, files, intelligence, investigation, satellite, workflow
 from .routers.investigation import router as investigation_router, job_router, get_r001_dir
 
 from backend.app.config import VARUNA_VERSION
@@ -32,6 +32,7 @@ app.include_router(satellite.router, prefix="/api/v1")
 app.include_router(analysis.router, prefix="/api/v1")
 app.include_router(workflow.router, prefix="/api/v1")
 app.include_router(files.router, prefix="/api/v1")
+app.include_router(intelligence.router, prefix="/api/v1")
 
 # Storage & Component Analysis Routers (Mounted on root /cases for backward compatibility)
 app.include_router(cases.router)
@@ -40,6 +41,7 @@ app.include_router(satellite.router)
 app.include_router(analysis.router)
 app.include_router(workflow.router)
 app.include_router(files.router)
+app.include_router(intelligence.router)
 
 # Unified Investigation Engine & Live Prototype Routers (Mounted on /api/cases & /api/investigations)
 app.include_router(investigation_router, prefix="/api/cases")
@@ -75,3 +77,11 @@ def ready():
 @app.get("/version")
 def get_version():
     return {"version": VARUNA_VERSION, "release_stage": "PRODUCTION_CANDIDATE"}
+
+
+# Mount static ops_console
+ops_console_dir = Path(__file__).resolve().parents[2] / "ops_console"
+if ops_console_dir.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/console", StaticFiles(directory=str(ops_console_dir), html=True), name="console")
+

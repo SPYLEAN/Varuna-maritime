@@ -66,3 +66,25 @@ def test_no_unscientific_wording_audit():
     forbidden_terms = ["culprit", "guilty", "proven source", "ai confidence", "probability of guilt", "100% accurate"]
     for term in forbidden_terms:
         assert term not in text, f"Forbidden term '{term}' found in case API response."
+
+
+def test_truthfulness_contracts_ui_no_demo_trajectory_labeled_real():
+    """6. Verify UI Stage Truthfulness Contracts never display Trajectory: REAL when demo forcing was used."""
+    index_html_path = OPS_CONSOLE_DIR / "index.html"
+    app_js_path = OPS_CONSOLE_DIR / "app.js"
+    assert index_html_path.exists()
+    assert app_js_path.exists()
+
+    index_html = index_html_path.read_text(encoding="utf-8")
+    app_js = app_js_path.read_text(encoding="utf-8")
+
+    # In index.html, verify truth-stage-traj is SYNTHETIC_DEMO and not REAL
+    assert 'id="truth-stage-traj">SYNTHETIC_DEMO<' in index_html
+    assert 'id="truth-stage-traj">REAL<' not in index_html
+
+    # In app.js, verify the rule: Do not display "Trajectory: REAL" when demo forcing was used
+    assert 'trajTruth.innerText = "SYNTHETIC_DEMO"' in app_js
+
+    # Verify the 5 truthfulness contract headers exist in index.html
+    for label in ["SAR PROCESSING", "TRAJECTORY", "RESPONSE ENGINE", "RESPONSE INPUTS", "RECEPTOR DATA"]:
+        assert label in index_html, f"Truthfulness card missing label '{label}'"
